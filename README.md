@@ -6,12 +6,22 @@ Kubernetes manifests for an EKS cluster, applied by GitHub Actions.
 
 ```
 eks-gitops/
+├── bootstrap/
+│   └── rbac.yaml           # one-time: lets the CI role deploy
 ├── manifests/
 │   ├── kustomization.yaml   # lists every app in this cluster
 │   └── nginx/               # namespace, deployment, service
 └── .github/
     └── workflows/
         └── deploy.yml
+```
+
+`bootstrap/rbac.yaml` grants the GitHub Actions IAM role permission to manage
+workloads. Apply it once per cluster — the pipeline does not apply it, so a
+compromised workflow cannot widen its own permissions:
+
+```bash
+kubectl apply -f bootstrap/rbac.yaml
 ```
 
 ## Deploy
