@@ -18,3 +18,10 @@ spec:
           image: nginx:latest
           ports:
             - containerPort: 80
+          volumeMounts:
+            - name: proxy-config
+              mountPath: /etc/nginx/conf.d
+      volumes:
+        - name: proxy-config
+          configMap:
+            name: nginx-proxy

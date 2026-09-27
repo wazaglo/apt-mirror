@@ -1,0 +1,14 @@
+# Cluster-scoped. CI deploy role CANNOT create these (bootstrap/rbac.yaml
+# grants no storageclasses/persistentvolumes) — apply MANUALLY once:
+#   kubectl apply -f manifests/storage/
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: efs-sc
+provisioner: efs.csi.aws.com
+parameters:
+  provisioningMode: efs-ap
+  fileSystemId: fs-0ddb254be08c6267a
+  directoryPerms: "700"
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
