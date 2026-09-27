@@ -17,7 +17,8 @@ spec:
       serviceAccountName: loki
       containers:
         - name: loki
-          image: grafana/loki:3.5.0
+          # v3.5.0 pinned by digest 2026-09-27.
+          image: grafana/loki@sha256:4c431d2e6b9b38718694b31c5d56be7c80dc69c513215fde1aeb5b02cd4e2665
           args:
             - -config.file=/etc/loki/loki.yaml
           ports:

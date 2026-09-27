@@ -1,0 +1,4 @@
+# Gitleaks auto-loads this file from the repo root.
+[allowlist]
+description = "Grafana admin password committed in plaintext before the External Secrets cutover. Rotated 2026-09-27 (new value lives only in SSM). This entry stops history scans from failing forever on a dead value — it must NEVER be extended to live secrets."
+regexes = ['''8geml84PLykbnTTbhFp7CIdQywE4Xcpj''']

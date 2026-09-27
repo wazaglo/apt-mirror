@@ -1,0 +1,59 @@
+name: pr-validate
+
+on:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'envs/**'
+      - 'terraform/**'
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+
+jobs:
+  manifests:
+    name: Kustomize build (all envs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: v1.29.2
+      - name: Build every overlay
+        run: |
+          set -euo pipefail
+          for d in envs/dev envs/prod; do
+            kubectl kustomize "$d/" > /dev/null && echo "OK: $d"
+          done
+      - name: No :latest images
+        run: |
+          set -euo pipefail
+          if grep -rEn 'image:[[:space:]]*[^ ]+:latest([[:space:]]|$)' apps/ platform/; then
+            echo "::error::Pinned images required — no :latest tags (see SECURITY.md)."
+            exit 1
+          fi
+          echo "OK: no :latest images"
+
+  terraform:
+    name: Terraform fmt + validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+      - name: fmt check
+        run: |
+          set -euo pipefail
+          terraform -chdir=terraform/networking fmt -check -recursive
+          terraform -chdir=terraform/eks fmt -check -recursive
+      - name: validate (no backend)
+        run: |
+          set -euo pipefail
+          terraform -chdir=terraform/networking init -backend=false
+          terraform -chdir=terraform/networking validate
+          terraform -chdir=terraform/eks init -backend=false
+          terraform -chdir=terraform/eks validate

@@ -16,8 +16,8 @@ spec:
       serviceAccountName: prometheus
       containers:
         - name: prometheus
-          # Pinned once first pull succeeds (see ACTIONS.md). Check tags if this fails.
-          image: prom/prometheus:latest
+          # v3.15.0 pinned by digest 2026-09-27 (was :latest).
+          image: prom/prometheus@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
           args:
             - --config.file=/etc/prometheus/prometheus.yml
             - --storage.tsdb.path=/prometheus

@@ -17,8 +17,8 @@ spec:
       serviceAccountName: alloy
       containers:
         - name: alloy
-          # Pinned once first pull succeeds (see ACTIONS.md). Check tags if this fails.
-          image: grafana/alloy:latest
+          # Pinned by digest 2026-09-27 (was :latest). Bump via PR + CI.
+          image: grafana/alloy@sha256:f111cce835516c5f99166342be7038496b52ced16667be5a11e19258a3e4cd30
           args:
             - run
             - /etc/alloy/config.river
