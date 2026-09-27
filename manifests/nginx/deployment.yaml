@@ -13,8 +13,6 @@ spec:
       labels:
         app: nginx
     spec:
-      imagePullSecrets:
-        - name: dockerhub
       containers:
         - name: nginx
           image: nginx:latest

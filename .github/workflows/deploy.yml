@@ -51,21 +51,6 @@ jobs:
       - name: Apply manifests
         run: kubectl apply -f rendered.yaml
 
-      - name: Sync Docker Hub credentials
-        env:
-          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: |
-          namespaces=$(kubectl create -f rendered.yaml --dry-run=client \
-            -o jsonpath='{.metadata.namespace}{"\n"}' | sed '/^$/d' | sort -u)
-          for ns in $namespaces; do
-            kubectl -n "$ns" create secret docker-registry dockerhub \
-              --docker-server=docker.io \
-              --docker-username="$DOCKERHUB_USERNAME" \
-              --docker-password="$DOCKERHUB_TOKEN" \
-              --dry-run=client -o yaml | kubectl apply -f -
-          done
-
       - name: Wait for rollouts
         run: |
           namespaces=$(kubectl create -f rendered.yaml --dry-run=client \

@@ -25,6 +25,16 @@ The `nginx` Service is type `LoadBalancer`, so EKS provisions an external IP:
 kubectl -n nginx-demo get svc nginx -w
 ```
 
+## Images
+
+Images come from public Docker Hub repositories, so no registry credentials are
+needed. Reference your own images as `wazaglo/<app>:<tag>`:
+
+```yaml
+        - name: app
+          image: wazaglo/app:latest
+```
+
 ## Add another app
 
 1. Create `manifests/<app>/` with the manifest files and a `kustomization.yaml` listing them.
