@@ -128,6 +128,77 @@ Doing this **overrides the schedule for that day** — KEDA will scale back to 0
 at the next window boundary it evaluates. To make the override stick, edit the
 ScaledObjects in git and merge (which is the better answer anyway).
 
+## Did it actually fire?
+
+**Check this first whenever the schedule seems not to have run.** The node half
+fails *silently* — a misconfigured EventBridge target produces no Lambda logs at
+all, and nothing alerts on it. The KEDA half is independent, so apps scale to 0
+while the nodes keep billing, which looks like a partial success.
+
+```bash
+# 1. Did the rule fire, and did it succeed?
+aws cloudwatch get-metric-statistics --namespace AWS/Events \
+  --metric-name Invocations --dimensions Name=RuleName,Value=eks-nodes-off \
+  --start-time "$(date -u -d '1 hour ago' +%FT%TZ)" --end-time "$(date -u +%FT%TZ)" \
+  --period 3600 --statistics Sum
+aws cloudwatch get-metric-statistics --namespace AWS/Events \
+  --metric-name FailedInvocations --dimensions Name=RuleName,Value=eks-nodes-off \
+  --start-time "$(date -u -d '1 hour ago' +%FT%TZ)" --end-time "$(date -u +%FT%TZ)" \
+  --period 3600 --statistics Sum
+
+# 2. Did the function actually run? (empty logs = never invoked)
+aws logs tail /aws/lambda/eks-node-scheduler --since 12h --format short
+
+# 3. Ground truth
+aws eks describe-nodegroup --cluster-name eks-lab --nodegroup-name ng-eks \
+  --query 'nodegroup.scalingConfig'
+```
+
+Reading the result:
+
+| Invocations | FailedInvocations | Lambda logs | Meaning |
+|---|---|---|---|
+| 0 | 0 | empty | rule never fired (disabled, or schedule not reached) |
+| ≥1 | ≥1 | empty | **EventBridge could not invoke the function** |
+| ≥1 | 0 | present | it ran |
+
+### IAM: two roles, on purpose
+
+EventBridge targets a Lambda through a role, and **that role's trust policy
+needs `events.amazonaws.com`** — not just `lambda.amazonaws.com`. Getting this
+wrong is silent: the rule fires, the invocation is rejected, and the only
+evidence is `FailedInvocations`.
+
+| Role | Trusts | Grants |
+|---|---|---|
+| `eks-node-scheduler-role` | `lambda.amazonaws.com` | the function's own permissions (EKS nodegroup resize) |
+| `eks-node-scheduler-invoke` | `events.amazonaws.com` | `lambda:InvokeFunction` on the scheduler function only |
+
+EventBridge must never be able to assume the execution role — that role can
+resize the node group, and the scheduler service has no reason to hold that.
+
+Verify the wiring is still intact after any change here:
+
+```bash
+aws events list-targets-by-rule --rule eks-nodes-off \
+  --query 'Targets[].[Arn,RoleArn,Input]'
+aws iam get-role --role-name eks-node-scheduler-invoke \
+  --query 'Role.AssumeRolePolicyDocument.Statement[].Principal'
+```
+
+If you ever need to prove the EventBridge→Lambda path without disturbing the
+real schedule, temporarily re-arm the rule a few minutes out and watch the logs:
+
+```bash
+# harmless: "on" while the nodes are already up is a no-op
+aws events put-rule --name eks-nodes-on \
+  --schedule-expression "cron(<min> <hour> <day> <month> ? *)"
+aws logs tail /aws/lambda/eks-node-scheduler --follow
+# then restore
+aws events put-rule --name eks-nodes-on --schedule-expression "cron(0 10 * * ? *)"
+```
+
+
 ## Deploying during off-hours
 
 `deploy.yml` detects the window and **still applies** the manifests, because the
@@ -156,6 +227,18 @@ the role's policy is wrong — check with
 `iam simulate-principal-policy --policy-source-arn <role-arn> --action-names eks:UpdateNodegroupConfig`.
 New IAM changes can take a couple of minutes to take effect at all; wait before
 concluding it is broken.
+
+**Nothing happened at 17:58 and there are no Lambda logs.**
+Not a KEDA or EKS problem — EventBridge could not invoke the function. Work
+through "Did it actually fire?" above; in practice this is the target's
+`RoleArn` trust policy missing `events.amazonaws.com`.
+
+**The Lambda logs `did not settle within 900s` after a scale-off.**
+Instances linger in `Terminating:Wait/Proceed` for minutes after being removed
+from the target capacity, so the function waits for them to disappear from the
+ASG before reporting success. The resize itself already succeeded — check
+`describe-nodegroup` for the real state, and treat the warning as cosmetic.
+
 
 **`ResourceInUseException`.**
 A previous node group update has not settled. The function retries; manually,

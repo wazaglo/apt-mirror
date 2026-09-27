@@ -36,6 +36,11 @@ They are rotated, not trusted:
 | Hostinger API token (`nyEo…`, shared in chat, rejected 401) | Revoked — never worked |
 | Hostinger API token (`iXbn…`, shared in chat, used for DNS) | **Rotate in hPanel → Profile → API** |
 
+Neither token was ever committed: the repository only ever contained the 4-char
+prefixes above. Verified across full history and via `gh secret list` (which holds
+only `AWS_DEPLOY_ROLE_ARN`). Rotation is still required because both values were
+shared in chat, which is outside this repository's history.
+
 ## Rotation checklist
 
 - [ ] Generate the new value (e.g. `openssl rand -base64 24`)
