@@ -2,7 +2,14 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - namespace.yaml
-  - proxy-config.yaml
   - deployment.yaml
   - service.yaml
   - ingress.yml
+
+# One file per FQDN in sites/ becomes one key (= filename) in this ConfigMap.
+# Add a site: drop another <fqdn>.conf in sites/ and list it below.
+configMapGenerator:
+  - name: nginx-sites
+    files:
+      - sites/_default.conf
+      - sites/grafana.azubisuccess.space.conf

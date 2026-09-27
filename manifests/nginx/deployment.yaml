@@ -24,4 +24,4 @@ spec:
       volumes:
         - name: proxy-config
           configMap:
-            name: nginx-proxy
+            name: nginx-sites

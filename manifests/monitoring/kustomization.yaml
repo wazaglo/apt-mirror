@@ -11,3 +11,14 @@ resources:
   - loki-deployment.yaml
   - loki-service.yaml
   - grafana-datasources.yaml
+  - alloy-sa.yaml
+  - alloy-config.yaml
+  - alloy-daemonset.yaml
+  - prometheus-sa.yaml
+  - prometheus-config.yaml
+  - prometheus-deployment.yaml
+  - prometheus-service.yaml
+  - node-exporter-daemonset.yaml
+  - blackbox-config.yaml
+  - blackbox-deployment.yaml
+  - blackbox-service.yaml
