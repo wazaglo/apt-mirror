@@ -1,6 +1,6 @@
 # eks-gitops
 
-Kubernetes manifests for an EKS cluster, applied by GitHub Actions.
+Nginx on EKS via GitHub Actions + Kustomize. This repo contains only the nginx manifests.
 
 ## Layout
 
@@ -9,16 +9,27 @@ eks-gitops/
 ├── bootstrap/
 │   └── rbac.yaml           # one-time: lets the CI role deploy
 ├── manifests/
-│   ├── kustomization.yaml   # lists every app in this cluster
-│   └── nginx/               # namespace, deployment, service
+│   ├── kustomization.yaml  # points at nginx only
+│   └── nginx/              # namespace, deployment, service (ClusterIP)
 └── .github/
     └── workflows/
         └── deploy.yml
 ```
 
-`bootstrap/rbac.yaml` grants the GitHub Actions IAM role permission to manage
-workloads. Apply it once per cluster — the pipeline does not apply it, so a
-compromised workflow cannot widen its own permissions:
+## Prerequisites
+
+- EKS cluster with GitHub OIDC (IRSA) configured.
+- GitHub Actions secrets / variables:
+  - Secret `AWS_DEPLOY_ROLE_ARN` — IAM role the workflow assumes.
+  - Variable `AWS_REGION` — e.g. `eu-central-1`.
+  - Variable `EKS_CLUSTER_NAME` — your cluster name.
+- The IAM role must be mapped to the `eks-gitops-deployers` group
+  (EKS access entry), which `bootstrap/rbac.yaml` binds to the deployer ClusterRole.
+
+## Bootstrap (once per cluster)
+
+The pipeline never applies `bootstrap/` itself, so a compromised workflow
+cannot widen its own permissions:
 
 ```bash
 kubectl apply -f bootstrap/rbac.yaml
@@ -27,29 +38,20 @@ kubectl apply -f bootstrap/rbac.yaml
 ## Deploy
 
 Push to `main` (or run the workflow manually). The workflow assumes the AWS role,
-updates the kubeconfig, renders `manifests/` with kustomize, then applies it.
+updates kubeconfig, renders `manifests/` with kustomize, applies it, then waits on
+`deployment/nginx` in `nginx-demo`. Pull requests only run the
+validate job (kustomize build + client-side dry run) and never touch the cluster.
 
-The `nginx` Service is type `LoadBalancer`, so EKS provisions an external IP:
+## Access
+
+The `nginx` Service is type `ClusterIP` — internal only, no external load balancer:
 
 ```bash
-kubectl -n nginx-demo get svc nginx -w
+kubectl -n nginx-demo get svc nginx
+kubectl -n nginx-demo port-forward svc/nginx 8080:80
+# then open http://localhost:8080
 ```
 
 ## Images
 
-Images come from public Docker Hub repositories, so no registry credentials are
-needed. Reference your own images as `wazaglo/<app>:<tag>`:
-
-```yaml
-        - name: app
-          image: wazaglo/app:latest
-```
-
-## Add another app
-
-1. Create `manifests/<app>/` with the manifest files and a `kustomization.yaml` listing them.
-2. Add `- <app>` to `resources` in `manifests/kustomization.yaml`.
-3. Push.
-
-Nothing in `deploy.yml` needs to change — the workflow picks up every directory
-listed in the root kustomization and waits on each namespace it finds.
+Public Docker Hub `nginx` image, no registry credentials needed.

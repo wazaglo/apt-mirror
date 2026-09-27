@@ -5,13 +5,22 @@ on:
     branches:
       - main
     paths:
-      - 'manifests/**'
+      - 'apps/**'
+      - 'envs/**'
       - '.github/workflows/deploy.yml'
   pull_request:
     paths:
-      - 'manifests/**'
+      - 'apps/**'
+      - 'envs/**'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment overlay to deploy (prod is manual-only)'
+        required: true
+        default: dev
+        type: choice
+        options: [dev, prod]
 
 permissions:
   contents: read
@@ -26,7 +35,7 @@ env:
   EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
   NAMESPACE: nginx-demo
   DEPLOYMENT: nginx
-  KUSTOMIZE_DIR: manifests
+  KUSTOMIZE_DIR: envs/${{ inputs.environment || 'dev' }}
   KUBECTL_VERSION: v1.29.2
 
 jobs:
@@ -46,8 +55,12 @@ jobs:
       - name: Show kubectl version
         run: kubectl version --client
 
-      - name: Kustomize build
-        run: kubectl kustomize "${{ env.KUSTOMIZE_DIR }}/" > rendered.yaml
+      - name: Kustomize build (all envs)
+        run: |
+          for env in dev prod; do
+            kubectl kustomize "envs/${env}/" > "rendered-${env}.yaml"
+          done
+          cat rendered-dev.yaml rendered-prod.yaml > rendered.yaml
 
       - name: Client-side dry run
         # No cluster in this job, and kubectl dry-run needs an apiserver for
@@ -79,7 +92,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: validate
-    # PRs only validate; real deploys happen on push to main or manual dispatch.
+    # PRs only validate. Push to main always deploys dev (KUSTOMIZE_DIR
+    # defaults to envs/dev). Prod deploys happen only via manual dispatch
+    # with environment=prod.
     if: github.event_name != 'pull_request'
     defaults:
       run:
