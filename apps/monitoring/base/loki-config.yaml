@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-config
+  namespace: monitoring
+data:
+  loki.yaml: |
+    auth_enabled: false
+
+    server:
+      http_listen_port: 3100
+      grpc_listen_port: 9096
+
+    common:
+      path_prefix: /loki
+      replication_factor: 1
+      storage:
+        s3:
+          # NOTE: no custom endpoint — dskit routes even STS calls through it,
+          # which S3 rejects with 405. Region default endpoint is correct.
+          region: us-west-1
+          bucketnames: azubi-logs
+          s3forcepathstyle: false
+          insecure: false
+      ring:
+        kvstore:
+          store: inmemory
+
+    schema_config:
+      configs:
+        - from: "2024-01-01"
+          store: tsdb
+          object_store: s3
+          schema: v13
+          index:
+            prefix: loki_index_
+            period: 24h
+
+    storage_config:
+      tsdb_shipper:
+        active_index_directory: /loki/tsdb-index
+        cache_location: /loki/tsdb-cache
+
+    compactor:
+      working_directory: /loki/compactor
+      compaction_interval: 10m
+      retention_enabled: true
+      retention_delete_delay: 2h
+      delete_request_store: s3
+
+    limits_config:
+      retention_period: 744h
+
+    ruler:
+      storage:
+        type: local
+        local:
+          directory: /loki/rules

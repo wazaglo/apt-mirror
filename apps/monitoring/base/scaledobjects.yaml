@@ -1,0 +1,93 @@
+# Nightly cost schedule — monitoring workloads.
+#
+# Pattern: ONE cron trigger defining the "work window". Outside that window no
+# trigger is active, so KEDA scales the target to minReplicaCount (0). That is
+# what makes the 17:55 -> 10:05 wrap-around work: a cron window cannot wrap
+# midnight (end < start is rejected), but "no active trigger" has no such limit.
+#
+# Do NOT add a second trigger for the off period — that reintroduces the wrap
+# problem and makes the morning gap ambiguous.
+#
+# Nodes terminate at ~17:58 and relaunch at 10:00 (see infra/keda/). The window
+# is deliberately inset from both so pods finish draining (and the TSDB WAL
+# flushes over EFS) before the node group goes away, and so KEDA only scales up
+# once there is capacity to place them.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: grafana-schedule
+  namespace: monitoring
+spec:
+  scaleTargetRef:
+    name: grafana
+  minReplicaCount: 0
+  maxReplicaCount: 2
+  pollingInterval: 60
+  cooldownPeriod: 30
+  triggers:
+    - type: cron
+      metadata:
+        timezone: Etc/UTC
+        start: "5 10 * * *"
+        end: "54 17 * * *"
+        desiredReplicas: "2"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: prometheus-schedule
+  namespace: monitoring
+spec:
+  scaleTargetRef:
+    name: prometheus
+  minReplicaCount: 0
+  maxReplicaCount: 1
+  pollingInterval: 60
+  cooldownPeriod: 30
+  triggers:
+    - type: cron
+      metadata:
+        timezone: Etc/UTC
+        start: "5 10 * * *"
+        end: "54 17 * * *"
+        desiredReplicas: "1"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: loki-schedule
+  namespace: monitoring
+spec:
+  scaleTargetRef:
+    name: loki
+  minReplicaCount: 0
+  maxReplicaCount: 1
+  pollingInterval: 60
+  cooldownPeriod: 30
+  triggers:
+    - type: cron
+      metadata:
+        timezone: Etc/UTC
+        start: "5 10 * * *"
+        end: "54 17 * * *"
+        desiredReplicas: "1"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: blackbox-schedule
+  namespace: monitoring
+spec:
+  scaleTargetRef:
+    name: blackbox
+  minReplicaCount: 0
+  maxReplicaCount: 1
+  pollingInterval: 60
+  cooldownPeriod: 30
+  triggers:
+    - type: cron
+      metadata:
+        timezone: Etc/UTC
+        start: "5 10 * * *"
+        end: "54 17 * * *"
+        desiredReplicas: "1"

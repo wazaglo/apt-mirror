@@ -1,0 +1,17 @@
+# Gitleaks v3 auto-loads this file from the repo root.
+#
+# There is deliberately NO value-based allowlist here.
+#
+# An earlier version allowlisted the pre-cutover Grafana admin password by
+# literal value, which meant the credential itself was stored in the repo —
+# acceptable only because it had been rotated, but pointless once gone. That
+# entry has been removed along with the value: the credential now exists only in
+# SSM Parameter Store, delivered by External Secrets.
+#
+# Why no allowlist is needed: gitleaks runs with fetch-depth 0 (full history),
+# so any commit that ever contained a secret would fail the scan. The history was
+# rewritten to purge those commits rather than to suppress the finding. If you
+# ever need to allowlist something, prefer a `paths` rule over a secret value.
+[allowlist]
+description = "No known-acceptable secrets. Fail closed."
+paths = []

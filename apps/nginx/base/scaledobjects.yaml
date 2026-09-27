@@ -1,0 +1,23 @@
+# Nightly cost schedule — nginx (the only internet-facing workload).
+# Same single-work-window cron pattern as apps/monitoring/base/scaledobjects.yaml.
+# When this is at 0 the ALB has no healthy targets and
+# https://grafana.azubisuccess.space returns 502 for the night.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: nginx-schedule
+  namespace: nginx-demo
+spec:
+  scaleTargetRef:
+    name: nginx
+  minReplicaCount: 0
+  maxReplicaCount: 2
+  pollingInterval: 60
+  cooldownPeriod: 30
+  triggers:
+    - type: cron
+      metadata:
+        timezone: Etc/UTC
+        start: "5 10 * * *"
+        end: "54 17 * * *"
+        desiredReplicas: "2"

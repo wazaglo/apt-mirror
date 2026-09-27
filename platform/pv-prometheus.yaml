@@ -1,0 +1,26 @@
+# Cluster-scoped — apply MANUALLY once (see storageclass.yaml header).
+# Static PV bound to the Prometheus access point (POSIX 1000:1000, /prometheus).
+#
+# Why a static PV instead of letting the EFS CSI driver provision dynamically:
+# dynamic provisioning mounts the filesystem root, which would put Prometheus's
+# TSDB next to Grafana's SQLite file. A dedicated access point keeps the two
+# workloads on separate paths with separate ownership.
+#
+# The access point is enforced POSIX — the pod must run as 1000:1000, which
+# prometheus-deployment.yaml pins. Changing one without the other gives a pod
+# that starts but cannot write ("permission denied" on /prometheus).
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: prometheus-efs
+spec:
+  capacity:
+    storage: 10Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: efs-sc
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: fs-0ddb254be08c6267a::fsap-012a38be930c8a207

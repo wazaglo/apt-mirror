@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: prometheus
+      # Longer than the 30s default: on the nightly 18:00 scale-down the pod
+      # must finish flushing and closing its WAL on the EFS volume (NFS, so
+      # slower than local disk) or the TSDB replays the WAL on next boot.
+      terminationGracePeriodSeconds: 60
+      # EFS AP fsap-012a38be930c8a207 is POSIX 1000:1000, so the container must
+      # write as 1000. The image default is 65534 (nobody), which the access point
+      # would map to 1000 anyway, but pinning it here makes the contract explicit.
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: prometheus
+          # v3.15.0 pinned by digest 2026-09-27 (was :latest).
+          image: prom/prometheus@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --storage.tsdb.retention.time=6h
+            - --web.enable-lifecycle
+            - --web.enable-remote-write-receiver
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+            - name: data
+              mountPath: /prometheus
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+        # Persistent so the 18:00-10:00 overnight node termination does not wipe
+        # the TSDB. Retention is still short (6h dev / 24h prod) — EFS here is for
+        # surviving restarts, not for long-term metric storage.
+        - name: data
+          persistentVolumeClaim:
+            claimName: prometheus-data

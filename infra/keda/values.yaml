@@ -1,0 +1,57 @@
+# KEDA — nightly cost schedule operator.
+# Installed manually (like the ALB controller / EFS CSI / ESO releases):
+#
+#   helm repo add kedacore https://kedacore.github.io/charts
+#   helm repo update
+#   helm upgrade --install keda kedacore/keda \
+#     --namespace keda --create-namespace \
+#     --values infra/keda/values.yaml
+#
+# KEDA creates cluster-scoped CRDs plus HPA objects in the workloads'
+# namespaces, so it sits outside CI's reach by design. See docs/adr/0004.
+#
+# Defaults are deliberately conservative: on a 5x t3.small group the operator
+# must not be the reason the cluster runs out of schedulable capacity.
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# The metrics-adapter is a second deployment; keep it small too.
+metricServer:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# We only use the cron scaler. No external scalers (no SQS/Redis/CloudWatch),
+# so there is nothing to keep an identity provider or secret store for.
+crds:
+  install: true
+
+# 60s matches the pollingInterval on our ScaledObjects.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# One replica is enough: this is a lab-scale scheduler, and at night the
+# operator is offline anyway (the nodes are terminated).
+replicaCount: 1
+
+serviceAccount:
+  # KEDA needs broad cluster access to read scale targets and write HPAs.
+  # This is a Helm-managed ClusterRoleBinding, not our CI role.
+  create: true

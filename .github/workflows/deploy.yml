@@ -1,0 +1,226 @@
+name: deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/**'
+      - 'envs/**'
+      - '.github/workflows/deploy.yml'
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'envs/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment overlay to deploy (prod is manual-only)'
+        required: true
+        default: dev
+        type: choice
+        options: [dev, prod]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
+  NAMESPACE: nginx-demo
+  DEPLOYMENT: nginx
+  KUSTOMIZE_DIR: envs/${{ inputs.environment || 'dev' }}
+  KUBECTL_VERSION: v1.29.2
+
+jobs:
+  validate:
+    name: Validate manifests (no cluster)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v5
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: Show kubectl version
+        run: kubectl version --client
+
+      - name: Kustomize build (all envs)
+        run: |
+          for env in dev prod; do
+            kubectl kustomize "envs/${env}/" > "rendered-${env}.yaml"
+          done
+          cat rendered-dev.yaml rendered-prod.yaml > rendered.yaml
+
+      - name: Client-side dry run
+        # No cluster in this job, and kubectl dry-run needs an apiserver for
+        # type discovery. kustomize build above already proves the manifests
+        # assemble; here we just prove every rendered doc is valid YAML with
+        # the fields kubectl requires. The real server dry-run happens in
+        # the deploy job, which has cluster access.
+        run: |
+          python3 - <<'EOF'
+          import sys, yaml
+          docs = list(yaml.safe_load_all(open('rendered.yaml')))
+          assert docs, 'rendered.yaml is empty'
+          for i, d in enumerate(docs):
+              for f in ('apiVersion', 'kind', 'metadata'):
+                  assert isinstance(d, dict) and f in d, f'doc {i} missing {f}'
+          print(f'OK: {len(docs)} valid manifests')
+          EOF
+
+      - name: Upload rendered manifests
+        uses: actions/upload-artifact@v7
+        with:
+          name: rendered-manifests
+          path: rendered.yaml
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    name: Apply manifests to EKS
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: validate
+    # PRs only validate. Push to main always deploys dev (KUSTOMIZE_DIR
+    # defaults to envs/dev). Prod deploys happen only via manual dispatch
+    # with environment=prod.
+    if: github.event_name != 'pull_request'
+    defaults:
+      run:
+        shell: bash
+    env:
+      AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check required config
+        run: |
+          set -u
+          missing=0
+          if [ -z "${AWS_DEPLOY_ROLE_ARN:-}" ]; then
+            echo "::error::Missing secret AWS_DEPLOY_ROLE_ARN (IAM role for OIDC)."
+            missing=1
+          fi
+          if [ -z "${AWS_REGION:-}" ]; then
+            echo "::error::Missing variable AWS_REGION (e.g. eu-central-1)."
+            missing=1
+          fi
+          if [ -z "${EKS_CLUSTER_NAME:-}" ]; then
+            echo "::error::Missing variable EKS_CLUSTER_NAME."
+            missing=1
+          fi
+          exit "$missing"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: eks-gitops-deploy
+
+      - name: Check cost schedule window
+        # The cluster is scaled to zero nodes every night (see
+        # infra/scheduler + infra/keda). The EKS *control plane* stays up, so
+        # apply/diff still work off-hours and we deliberately keep running them:
+        # skipping the apply would let git and the cluster silently diverge, and
+        # nothing would reconcile them until the next daytime push.
+        #
+        # What must be skipped off-hours is anything that waits for pods, since
+        # there are no nodes to schedule them onto and those steps would hang
+        # until the job timeout.
+        id: schedule
+        run: |
+          set -euo pipefail
+          now_min=$(( 10#$(date -u +%H) * 60 + 10#$(date -u +%M) ))
+          # Window mirrors the ScaledObject cron in apps/*/base/scaledobjects.yaml
+          # and the EventBridge rules in infra/scheduler: KEDA drains apps at
+          # 17:54, nodes terminate at 17:58, nodes return at 10:00, KEDA scales
+          # apps at 10:05.
+          off_start=$(( 17 * 60 + 55 ))
+          off_end=$(( 10 * 60 + 5 ))
+          if [ "$now_min" -ge "$off_start" ] || [ "$now_min" -lt "$off_end" ]; then
+            echo "wait_for_rollout=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Nightly cost window::$(date -u +%H:%M) UTC is inside the off-hours window (17:55-10:05 UTC). Manifests are applied so git stays in sync, but the node group is at 0 capacity, so no pods will start. Workloads come up automatically at 10:05 UTC."
+          else
+            echo "wait_for_rollout=true" >> "$GITHUB_OUTPUT"
+            echo "In work hours ($(date -u +%H:%M) UTC) — will wait for rollout."
+          fi
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v5
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: Update kubeconfig
+        run: |
+          set -euo pipefail
+          aws eks update-kubeconfig \
+            --name "${EKS_CLUSTER_NAME}" \
+            --region "${AWS_REGION}"
+          kubectl cluster-info
+          kubectl auth can-i create deployments -n "${NAMESPACE}"
+
+      - name: Build manifests
+        run: |
+          set -euo pipefail
+          kubectl kustomize "${KUSTOMIZE_DIR}/" > rendered.yaml
+          kubectl apply --dry-run=client -f rendered.yaml
+
+      - name: Show pending changes
+        # kubectl diff exit codes: 0 = no diff, 1 = diff found, >1 = error.
+        # A diff must not fail the job, but real errors must.
+        run: |
+          set -uo pipefail
+          # The runner invokes bash with -e; diff exits 1 when changes exist,
+          # which must NOT kill the script before we inspect the status.
+          set +e
+          kubectl diff -f rendered.yaml
+          status=$?
+          if [ "$status" -gt 1 ]; then
+            echo "::error::kubectl diff failed with exit code $status"
+            exit "$status"
+          fi
+          exit 0
+
+      - name: Apply manifests
+        run: |
+          set -euo pipefail
+          kubectl apply -f rendered.yaml
+
+      - name: Wait for rollout
+        if: steps.schedule.outputs.wait_for_rollout == 'true'
+        run: |
+          set -euo pipefail
+          kubectl -n "${NAMESPACE}" rollout status "deployment/${DEPLOYMENT}" --timeout=180s
+
+      - name: Verify
+        if: steps.schedule.outputs.wait_for_rollout == 'true'
+        run: |
+          set -euo pipefail
+          kubectl -n "${NAMESPACE}" get "deployment/${DEPLOYMENT}" svc/nginx -o wide
+          kubectl -n "${NAMESPACE}" get pods -l app=nginx -o wide
+
+      - name: Report status
+        if: always()
+        run: kubectl -n "${NAMESPACE}" get deployment,pod,service -o wide
+
+      - name: Upload rendered manifests
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rendered-manifests
+          path: rendered.yaml
+          if-no-files-found: error
+          retention-days: 7

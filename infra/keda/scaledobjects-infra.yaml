@@ -1,0 +1,116 @@
+# Nightly cost schedule for Helm-owned components — APPLIED MANUALLY.
+#
+# These are deliberately NOT in apps/ (CI does not deploy them, and the
+# workloads themselves are Helm releases, so CI scaling them would fight Helm).
+# Re-apply after any `helm upgrade` of the corresponding release:
+#
+#   kubectl apply -f infra/keda/scaledobjects-infra.yaml
+#
+# Same single-work-window cron pattern as apps/*/base/scaledobjects.yaml.
+#
+# NOT scheduled here, on purpose:
+#   - efs-csi-controller / efs-csi-node  — must stay up to remount EFS
+#   - alloy (DaemonSet)                   — dies with the nodes, returns with them
+#   - coredns, kube-proxy, aws-node,
+#     eks-pod-identity-agent, dcgm-server — cluster plumbing
+#   - keda operator/metrics-apiserver     — is the thing doing the scheduling
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: alb-controller-schedule
+  namespace: kube-system
+spec:
+  scaleTargetRef:
+    name: aws-load-balancer-controller
+  minReplicaCount: 0
+  maxReplicaCount: 2
+  pollingInterval: 60
+  cooldownPeriod: 30
+  triggers:
+    - type: cron
+      metadata:
+        timezone: Etc/UTC
+        start: "5 10 * * *"
+        end: "54 17 * * *"
+        desiredReplicas: "2"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: external-secrets-schedule
+  namespace: external-secrets
+spec:
+  scaleTargetRef:
+    name: external-secrets
+  minReplicaCount: 0
+  maxReplicaCount: 1
+  pollingInterval: 60
+  cooldownPeriod: 30
+  triggers:
+    - type: cron
+      metadata:
+        timezone: Etc/UTC
+        start: "5 10 * * *"
+        end: "54 17 * * *"
+        desiredReplicas: "1"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: external-secrets-cert-controller-schedule
+  namespace: external-secrets
+spec:
+  scaleTargetRef:
+    name: external-secrets-cert-controller
+  minReplicaCount: 0
+  maxReplicaCount: 1
+  pollingInterval: 60
+  cooldownPeriod: 30
+  triggers:
+    - type: cron
+      metadata:
+        timezone: Etc/UTC
+        start: "5 10 * * *"
+        end: "54 17 * * *"
+        desiredReplicas: "1"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: external-secrets-webhook-schedule
+  namespace: external-secrets
+spec:
+  scaleTargetRef:
+    name: external-secrets-webhook
+  minReplicaCount: 0
+  maxReplicaCount: 1
+  pollingInterval: 60
+  cooldownPeriod: 30
+  triggers:
+    - type: cron
+      metadata:
+        timezone: Etc/UTC
+        start: "5 10 * * *"
+        end: "54 17 * * *"
+        desiredReplicas: "1"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: external-dns-schedule
+  namespace: external-dns
+spec:
+  scaleTargetRef:
+    name: external-dns
+  minReplicaCount: 0
+  maxReplicaCount: 1
+  pollingInterval: 60
+  cooldownPeriod: 30
+  triggers:
+    - type: cron
+      metadata:
+        timezone: Etc/UTC
+        start: "5 10 * * *"
+        end: "54 17 * * *"
+        desiredReplicas: "1"
