@@ -132,6 +132,6 @@ roleRef:
   kind: ClusterRole
   name: eks-gitops-deployer
 subjects:
-  - kind: User
+  - kind: Group
     apiGroup: rbac.authorization.k8s.io
-    name: arn:aws:iam::195675606509:role/eks-gitops-github-actions
+    name: eks-gitops-deployers
