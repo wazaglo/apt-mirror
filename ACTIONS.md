@@ -197,6 +197,64 @@ same `grafana.db` visible from both pods, `https://grafana.azubisuccess.space/lo
   `ssl-redirect: 443`. Verified: HTTP → 301 to HTTPS, HTTPS serves Amazon-issued
   `CN=*.azubisuccess.space`, Grafana login page 200.
 
+## 10. Observability: Alloy, Prometheus, node metrics, blackbox
+
+All in `manifests/monitoring/` (app objects via GitOps) + `manifests/cluster-rbac/rbac.yaml`
+(ClusterRoles — applied MANUALLY, CI can't):
+```bash
+kubectl apply -f manifests/cluster-rbac/
+```
+
+- **Alloy DaemonSet** (all containers, all namespaces → Loki): `discovery.kubernetes`
+  + `loki.source.kubernetes` + `loki.write http://loki...:3100`. Needs `pods/log`
+  in its ClusterRole (without it: tailers retry with `forbidden`).
+- **node-exporter REMOVED** — Alloy's `prometheus.exporter.unix` (same collectors)
+  + `prometheus.scrape` → `prometheus.remote_write` to Prometheus
+  (`--web.enable-remote-write-receiver`). Node metrics (`node_uname_info`=5)
+  confirm it. Deleted the DaemonSet manifest + live object.
+- **Prometheus** (1 replica, 6h retention on emptyDir) scrapes itself +
+  blackbox probes (`https://grafana.azubisuccess.space/login`,
+  `http://nginx.nginx-demo...` — both `probe_success=1`).
+- **blackbox** (http_2xx, follows redirects).
+- Grafana gets both datasources automatically (`grafana-datasources` ConfigMap,
+  needs a Grafana restart after changes): Loki + Prometheus (default).
+- Loki fixes along the way: removed `compactor.shared_store` (gone in 3.x),
+  added `delete_request_store: s3`, and dropped the custom S3 `endpoint`
+  (dskit routed even STS calls through it → S3 405). Verified: `/ready`, S3
+  objects landing in `azubi-logs`, log queries returning entries.
+- Grafana admin password: env is only honored on a FRESH database — ours kept
+  the default `admin/admin` (likely first-boot race on shared SQLite). Reset live:
+  `kubectl -n monitoring exec <pod> -- grafana cli --homepath /usr/share/grafana admin reset-admin-password <pw>`.
+  Working password is the one in `manifests/monitoring/secret.yaml`; rotate it.
+
+## 11. CI pipeline fixes (workflows went red — now green)
+
+- Old workflow died on `kubectl wait deployment --all` in namespaces with no
+  deployments (exit 1). New `deploy.yml`: validate job (offline) + deploy job
+  that only waits on `deployment/nginx`.
+- `kubectl apply --dry-run=client` needs an apiserver even with
+  `--validate=false` → validate job now does `kustomize build` + a Python YAML
+  sanity check; real dry-run stays in the deploy job (has cluster).
+- `kubectl diff` exits 1 when changes exist; the runner's `bash -e` killed the
+  step before reading `$?` → added `set +e` in that step.
+- Generated `nginx-sites` ConfigMap landed in `default` (generators carry no
+  namespace) → JSON patch in `manifests/nginx/kustomization.yaml` pins it to
+  `nginx-demo`. Also cleaned the stray copy from `default`.
+- Image tags: Docker Hub API was unusable from here, so new images use
+  `:latest` (alloy, prometheus, blackbox) — pin exact versions from running
+  pods when locking down.
+
+## 12. Capacity: nodes 3 → 5 (t3.small, Free Tier limit)
+
+t3.small allows 11 pods/node. DaemonSets (Alloy, EFS-CSI) + apps outgrew 3×11,
+and t3.medium can't launch on this account (Free Tier restriction), so:
+```bash
+aws eks update-nodegroup-config --region us-west-1 --cluster-name eks-lab \
+  --nodegroup-name ng-eks --scaling-config minSize=2,maxSize=5,desiredSize=5
+```
+Tip learned: a DaemonSet pod pinned to a full node stays Pending forever —
+bounce one movable replica (we moved a coredns) to free its slot.
+
 ## Installed
 
 - EKS `eks-lab` 1.36 + Managed NodeGroup `ng-eks` (t3.small x3, AL2023)
