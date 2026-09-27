@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'manifests/**'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
@@ -25,7 +28,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
@@ -36,10 +39,29 @@ jobs:
         run: |
           aws eks update-kubeconfig \
             --name "${{ vars.EKS_CLUSTER_NAME }}" \
-            --region "${{ vars.AWS_REGION || 'us-east-1' }}"
+            --region "${{ vars.AWS_REGION }}"
+
+      - name: Build manifests
+        run: kubectl kustomize manifests/ > rendered.yaml
+
+      - name: Show pending changes
+        run: kubectl diff -f rendered.yaml || true
 
       - name: Apply manifests
+        run: kubectl apply -f rendered.yaml
+
+      - name: Wait for rollouts
         run: |
-          kubectl apply -f manifests/
-          kubectl -n nginx-demo rollout status deployment/nginx --timeout=120s
-          kubectl rollout status deployment/app2 --timeout=120s
+          namespaces=$(kubectl create -f rendered.yaml --dry-run=client \
+            -o jsonpath='{.metadata.namespace}{"\n"}' | sed '/^$/d' | sort -u)
+          for ns in $namespaces; do
+            echo "Waiting on namespace: $ns"
+            kubectl -n "$ns" wait \
+              --for=condition=Available \
+              --timeout=180s \
+              deployment --all
+          done
+
+      - name: Report status
+        if: always()
+        run: kubectl get deployment,pod,service -A -o wide
