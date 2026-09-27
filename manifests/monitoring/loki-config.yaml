@@ -16,7 +16,8 @@ data:
       replication_factor: 1
       storage:
         s3:
-          endpoint: s3.us-west-1.amazonaws.com
+          # NOTE: no custom endpoint — dskit routes even STS calls through it,
+          # which S3 rejects with 405. Region default endpoint is correct.
           region: us-west-1
           bucketnames: azubi-logs
           s3forcepathstyle: false
