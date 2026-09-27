@@ -50,8 +50,21 @@ jobs:
         run: kubectl kustomize "${{ env.KUSTOMIZE_DIR }}/" > rendered.yaml
 
       - name: Client-side dry run
-        # No cluster in this job: skip OpenAPI validation (needs an apiserver).
-        run: kubectl apply --dry-run=client --validate=false -f rendered.yaml
+        # No cluster in this job, and kubectl dry-run needs an apiserver for
+        # type discovery. kustomize build above already proves the manifests
+        # assemble; here we just prove every rendered doc is valid YAML with
+        # the fields kubectl requires. The real server dry-run happens in
+        # the deploy job, which has cluster access.
+        run: |
+          python3 - <<'EOF'
+          import sys, yaml
+          docs = list(yaml.safe_load_all(open('rendered.yaml')))
+          assert docs, 'rendered.yaml is empty'
+          for i, d in enumerate(docs):
+              for f in ('apiVersion', 'kind', 'metadata'):
+                  assert isinstance(d, dict) and f in d, f'doc {i} missing {f}'
+          print(f'OK: {len(docs)} valid manifests')
+          EOF
 
       - name: Upload rendered manifests
         uses: actions/upload-artifact@v4
