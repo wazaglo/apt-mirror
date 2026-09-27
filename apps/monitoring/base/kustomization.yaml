@@ -3,7 +3,7 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - pvc.yaml
-  - secret.yaml
+  - externalsecret.yaml
   - deployment.yaml
   - service.yaml
   - loki-sa.yaml
