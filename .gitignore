@@ -4,3 +4,7 @@
 .idea/
 .vscode/
 kubectl-*.log
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate*
+rendered.yaml
