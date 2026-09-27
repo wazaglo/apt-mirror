@@ -15,11 +15,12 @@ data:
       }
     }
 
-    # EDIT ME: replace with your real FQDN(s). One server block per FQDN,
-    # each proxying to that app's ClusterIP Service (same cluster, any namespace).
+    # One server block per FQDN, each proxying to that app's ClusterIP
+    # Service (same cluster, any namespace). Wildcard cert *.azubisuccess.space
+    # covers all names below.
     server {
       listen 80;
-      server_name grafana.example.com;
+      server_name grafana.azubisuccess.space;
 
       location / {
         proxy_pass http://grafana.monitoring.svc.cluster.local:3000;
