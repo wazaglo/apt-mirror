@@ -15,13 +15,19 @@ Sources:
 
 ---
 
-## Step 0 — Fix the node group (NodeCreationFailure) ✅ done
+## Step 0 — Node IAM role + node group ✅ done
 
-Symptom: node group `ng-eks` stuck at `CREATE_FAILED`, `Instances failed to join`.
-Cause: `AmazonEKSNodeRole` had no policies attached. Networking was fine.
+Create the node role first, attach its policies, then create the node group
+using it. Use `t3.small` or larger — `t3.micro` (1 GB RAM) is too small for
+modern EKS and fails with `NodeCreationFailure`.
 
 ```bash
-# 1. Attach the 3 mandatory node policies
+# 1. Create the node role (trusted by EC2)
+aws iam create-role --role-name AmazonEKSNodeRole \
+  --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}' \
+  --description "Node IAM role for eks-lab"
+
+# 2. Attach the 3 mandatory node policies
 aws iam attach-role-policy --role-name AmazonEKSNodeRole \
   --policy-arn arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
 aws iam attach-role-policy --role-name AmazonEKSNodeRole \
@@ -30,13 +36,7 @@ aws iam attach-role-policy --role-name AmazonEKSNodeRole \
   --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
 aws iam list-attached-role-policies --role-name AmazonEKSNodeRole
 
-# 2. Delete the dead group (cannot recover in place) and wait
-aws eks delete-nodegroup --region us-west-1 \
-  --cluster-name eks-lab --nodegroup-name ng-eks
-aws eks wait nodegroup-deleted --region us-west-1 \
-  --cluster-name eks-lab --nodegroup-name ng-eks
-
-# 3. Recreate with t3.small (next size up from t3.micro — 1 GB RAM is too small)
+# 3. Create the node group with that role
 aws eks create-nodegroup --region us-west-1 \
   --cluster-name eks-lab --nodegroup-name ng-eks \
   --node-role arn:aws:iam::195675606509:role/AmazonEKSNodeRole \
