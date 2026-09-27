@@ -3,6 +3,19 @@
 What was done on `eks-lab` (us-west-1, 1.36) and how to repeat it.
 No commit history here — just actions and commands.
 
+> **Path note (2026-09-27 restructure).** Commands below are kept as they were
+> run, so they reference the old layout. Current paths:
+> `manifests/nginx/` → `apps/nginx/base/`,
+> `manifests/monitoring/` → `apps/monitoring/base/`,
+> `manifests/alb/` → `apps/alb/`,
+> `manifests/alb-controller/` → `infra/aws-load-balancer-controller/`,
+> `manifests/cluster-rbac/` + `manifests/storage/` → `platform/`,
+> `bootstrap/rbac.yaml` → `platform/bootstrap-rbac.yaml`,
+> and the CI deploy root is now `envs/dev/` (was `manifests/`).
+> Run `kubectl kustomize envs/dev/` instead of `manifests/`.
+> `manifests/monitoring/secret.yaml` no longer exists — Grafana's admin
+> credentials moved to SSM + External Secrets (see §13).
+
 Sources:
 - https://docs.aws.amazon.com/eks/latest/userguide/lbc-helm.html
 
@@ -159,11 +172,11 @@ helm upgrade --install aws-efs-csi-driver aws-efs-csi-driver/aws-efs-csi-driver 
   --set controller.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=arn:aws:iam::195675606509:role/efs-csi-driver-role
 ```
 
-Storage manifests: `manifests/storage/` (StorageClass `efs-sc` + static PV
+Storage manifests: `platform/` (StorageClass `efs-sc` + static PV
 `fs-0ddb254be08c6267a::fsap-088c8c16707025698) — applied MANUALLY, never via CI
 (CI role can't manage cluster-scoped storage):
 ```bash
-kubectl apply -f manifests/storage/
+kubectl apply -f platform/
 ```
 
 ## 8. Grafana x2 on EFS + nginx URL block (namespace `monitoring`)
@@ -199,10 +212,10 @@ same `grafana.db` visible from both pods, `https://grafana.azubisuccess.space/lo
 
 ## 10. Observability: Alloy, Prometheus, node metrics, blackbox
 
-All in `manifests/monitoring/` (app objects via GitOps) + `manifests/cluster-rbac/rbac.yaml`
+All in `manifests/monitoring/` (app objects via GitOps) + `platform/cluster-rbac.yaml`
 (ClusterRoles — applied MANUALLY, CI can't):
 ```bash
-kubectl apply -f manifests/cluster-rbac/
+kubectl apply -f platform/cluster-rbac.yaml
 ```
 
 - **Alloy DaemonSet** (all containers, all namespaces → Loki): `discovery.kubernetes`

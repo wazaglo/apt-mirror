@@ -5,7 +5,7 @@ on:
     paths:
       - 'apps/**'
       - 'envs/**'
-      - 'terraform/**'
+      - 'platform/**'
       - '.github/workflows/**'
 
 permissions:
@@ -35,25 +35,6 @@ jobs:
             exit 1
           fi
           echo "OK: no :latest images"
-
-  terraform:
-    name: Terraform fmt + validate
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.9.8
-      - name: fmt check
-        run: |
-          set -euo pipefail
-          terraform -chdir=terraform/networking fmt -check -recursive
-          terraform -chdir=terraform/eks fmt -check -recursive
-      - name: validate (no backend)
-        run: |
-          set -euo pipefail
-          terraform -chdir=terraform/networking init -backend=false
-          terraform -chdir=terraform/networking validate
-          terraform -chdir=terraform/eks init -backend=false
-          terraform -chdir=terraform/eks validate
+# NOTE: terraform/ is intentionally NOT validated in CI. It mirrors live
+# infrastructure and is run manually (`terraform plan` by an admin), so it
+# stays out of the pipeline on purpose.

@@ -17,7 +17,7 @@ kubectl kustomize apps/nginx/overlays/dev > /dev/null
 kubectl kustomize apps/monitoring/overlays/dev > /dev/null
 
 # Rendered output sanity (mirrors CI)
-kubectl kustomize manifests/ > /tmp/rendered.yaml  # legacy path, being migrated
+kubectl kustomize envs/dev/ > /tmp/rendered.yaml
 python3 - <<'EOF'
 import yaml
 docs = list(yaml.safe_load_all(open('/tmp/rendered.yaml')))
@@ -27,12 +27,15 @@ assert docs and all(
 )
 print(f'OK: {len(docs)} valid manifests')
 EOF
+```
 
-# Terraform (from repo root)
-terraform -chdir=terraform/networking fmt -check
-terraform -chdir=terraform/networking validate
-terraform -chdir=terraform/eks fmt -check
-terraform -chdir=terraform/eks validate
+Terraform (`terraform/`) is **not** part of CI — it mirrors live
+infrastructure and is planned/applied manually by an admin. Validate it
+locally when you touch it:
+
+```bash
+terraform -chdir=terraform/networking fmt -check && terraform -chdir=terraform/networking validate
+terraform -chdir=terraform/eks fmt -check && terraform -chdir=terraform/eks validate
 ```
 
 ## Rules

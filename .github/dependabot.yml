@@ -5,13 +5,8 @@ updates:
     schedule:
       interval: weekly
     labels: [dependencies]
-  - package-ecosystem: terraform
-    directory: /terraform/networking
-    schedule:
-      interval: weekly
-    labels: [dependencies]
-  - package-ecosystem: terraform
-    directory: /terraform/eks
+  - package-ecosystem: docker
+    directory: /
     schedule:
       interval: weekly
     labels: [dependencies]

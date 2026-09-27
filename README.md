@@ -1,57 +1,134 @@
 # eks-gitops
 
-Nginx on EKS via GitHub Actions + Kustomize. This repo contains only the nginx manifests.
+Production-shaped EKS platform, deployed from git. Kubernetes manifests for
+apps, GitHub Actions for delivery, AWS-native storage, DNS, TLS, and a full
+observability stack — with the cluster-wide surfaces deliberately kept out of
+CI's reach.
 
-## Layout
+**Cluster:** `eks-lab` (EKS 1.36) · **Region:** `us-west-1` · **Account:** `195675606509`
+**Live URL:** <https://grafana.azubisuccess.space>
+
+---
+
+## What runs here
+
+| Component | Where | Storage | Applied by |
+|---|---|---|---|
+| nginx (multi-site reverse proxy) | `nginx-demo` | — | CI |
+| Grafana ×2 | `monitoring` | EFS (`fs-0ddb…`, AP 472:472) | CI |
+| Loki | `monitoring` | S3 `azubi-logs` | CI |
+| Prometheus + blackbox | `monitoring` | `emptyDir` (6h dev / 24h prod) | CI |
+| Alloy DaemonSet (logs + node metrics) | `monitoring` | `emptyDir` | CI |
+| ALB controller, EFS CSI, External Secrets | `kube-system`, `external-secrets` | — | Helm (manual) |
+| ClusterRoles, StorageClass, PV, ClusterSecretStore | — | — | `kubectl` (manual) |
+| VPC, EKS, IAM | — | — | Terraform (manual) |
+
+Traffic: `DNS → ALB (TLS) → nginx (Host-based) → app Service`. Logs:
+`Alloy → Loki → S3`. Metrics: `Alloy → remote_write → Prometheus → Grafana`.
+
+## Repository layout
 
 ```
-eks-gitops/
-├── bootstrap/
-│   └── rbac.yaml           # one-time: lets the CI role deploy
-├── manifests/
-│   ├── kustomization.yaml  # points at nginx only
-│   └── nginx/              # namespace, deployment, service (ClusterIP)
-└── .github/
-    └── workflows/
-        └── deploy.yml
+apps/                      # everything CI deploys (namespaced only)
+  nginx/base/              #   + sites/*.conf, one file per FQDN
+    overlays/{dev,prod}/
+  monitoring/base/         #   grafana, loki, alloy, prometheus, blackbox
+    overlays/{dev,prod}/
+  alb/                     #   ALB controller ServiceAccount (IRSA)
+envs/{dev,prod}/           # environment roots — the CI deploy target
+platform/                  # cluster-scoped, applied MANUALLY
+infra/                     # Helm releases: rendered manifests + values
+terraform/{networking,eks} # infra as code, run manually, NOT in CI
+docs/                      # architecture, onboarding, runbooks, ADRs, ACTIONS
+bootstrap → platform/      # CI deploy RBAC (moved)
 ```
 
-## Prerequisites
+`apps/**` and `envs/**` are the only paths that reach the cluster from CI.
 
-- EKS cluster with GitHub OIDC (IRSA) configured.
-- GitHub Actions secrets / variables:
-  - Secret `AWS_DEPLOY_ROLE_ARN` — IAM role the workflow assumes.
-  - Variable `AWS_REGION` — e.g. `eu-central-1`.
-  - Variable `EKS_CLUSTER_NAME` — your cluster name.
-- The IAM role must be mapped to the `eks-gitops-deployers` group
-  (EKS access entry), which `bootstrap/rbac.yaml` binds to the deployer ClusterRole.
-
-## Bootstrap (once per cluster)
-
-The pipeline never applies `bootstrap/` itself, so a compromised workflow
-cannot widen its own permissions:
+## Quick start
 
 ```bash
-kubectl apply -f bootstrap/rbac.yaml
+git clone https://github.com/wazaglo/eks-gitops.git && cd eks-gitops
+kubectl kustomize envs/dev/ > /dev/null && echo "manifests render OK"
+
+aws eks update-kubeconfig --region us-west-1 --name eks-lab
+kubectl get nodes
 ```
 
-## Deploy
+Deploying, validating, and the full onboarding path: **[docs/onboarding.md](docs/onboarding.md)**.
 
-Push to `main` (or run the workflow manually). The workflow assumes the AWS role,
-updates kubeconfig, renders `manifests/` with kustomize, applies it, then waits on
-`deployment/nginx` in `nginx-demo`. Pull requests only run the
-validate job (kustomize build + client-side dry run) and never touch the cluster.
+## How deployment works
 
-## Access
+1. Branch off `main`, edit under `apps/`.
+2. PR → `pr-validate` builds every overlay, rejects `:latest` images; `secret-scan` runs gitleaks.
+3. Review + merge to `main` → `deploy` assumes the OIDC role and applies `envs/dev/`.
+4. Prod is a separate overlay, deployed only on manual dispatch.
 
-The `nginx` Service is type `ClusterIP` — internal only, no external load balancer:
+The CI role can only manage namespaced workloads. Cluster-scoped and Helm-managed
+objects are applied by a human — a compromised workflow cannot widen its own
+permissions. See [ADR-0004](docs/adr/0004-push-gitops-least-privilege.md) and [SECURITY.md](SECURITY.md).
+
+## Secrets
+
+No credentials in git. Values live in **SSM Parameter Store** and reach the
+cluster through the **External Secrets Operator**. Reading, rotating, and
+adding secrets: [docs/runbooks/secrets.md](docs/runbooks/secrets.md).
+
+## Adding a site (one FQDN → one backend)
 
 ```bash
-kubectl -n nginx-demo get svc nginx
-kubectl -n nginx-demo port-forward svc/nginx 8080:80
-# then open http://localhost:8080
+# 1. write the server block
+cat > apps/nginx/base/sites/api.azubisuccess.space.conf <<'EOF'
+server {
+  listen 80;
+  server_name api.azubisuccess.space;
+  location / {
+    proxy_pass http://api.default.svc.cluster.local:8080;
+    proxy_set_header Host $host;
+  }
+}
+EOF
+
+# 2. register it in the generator list
+#    apps/nginx/base/kustomization.yaml -> configMapGenerator.files
+
+# 3. point DNS at the ALB, then push and reload nginx
+kubectl -n nginx-demo rollout restart deploy/nginx
 ```
 
-## Images
+`apps/nginx/base/sites/_default.conf` must keep serving `/` — it is the ALB
+health-check target. Breaking it fails every target at once.
 
-Public Docker Hub `nginx` image, no registry credentials needed.
+## Operations
+
+| Need | Go to |
+|---|---|
+| Symptom → fix | [docs/runbooks/README.md](docs/runbooks/README.md) |
+| What was actually done, with commands | [docs/ACTIONS.md](docs/ACTIONS.md) |
+| What is installed / next | [docs/ROADMAP.md](docs/ROADMAP.md) |
+| How it fits together | [docs/architecture.md](docs/architecture.md) |
+| Why we chose this | [docs/adr/](docs/adr/) |
+| Recent changes | [CHANGELOG.md](CHANGELOG.md) |
+
+## Contributing
+
+Branch `feat/*`, Conventional Commits, PR with review (CODEOWNERS).
+Local validation commands: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Known limitations (deliberate)
+
+- Grafana runs 2 replicas on one SQLite file over NFS — can hit
+  "database is locked"; prod overlay pins 1 replica, real fix is external Postgres.
+- Loki and Prometheus are single-writer with `emptyDir` WAL/cache: a restart
+  drops the last few seconds of unshipped data.
+- TLS terminates at the ALB; in-cluster traffic is plain HTTP.
+- EFS mounts are not using `encryptInTransit`; Grafana has no
+  `GF_SECURITY_SECRET_KEY`; cluster Secrets are not KMS-encrypted.
+- No alerting yet (Prometheus has no Alertmanager rules) and no alerting
+  receiver wired.
+- `terraform/` mirrors live infrastructure but is not adopted with
+  `terraform import` — applying it as-is would create duplicates.
+
+## License
+
+[MIT](LICENSE)
