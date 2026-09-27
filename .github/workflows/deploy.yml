@@ -140,6 +140,9 @@ jobs:
         # A diff must not fail the job, but real errors must.
         run: |
           set -uo pipefail
+          # The runner invokes bash with -e; diff exits 1 when changes exist,
+          # which must NOT kill the script before we inspect the status.
+          set +e
           kubectl diff -f rendered.yaml
           status=$?
           if [ "$status" -gt 1 ]; then
