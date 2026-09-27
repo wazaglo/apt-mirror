@@ -15,15 +15,8 @@ data:
         static_configs:
           - targets: ["localhost:9090"]
 
-      # Node hardware metrics from the node-exporter DaemonSet (one per node).
-      - job_name: node-exporter
-        kubernetes_sd_configs:
-          - role: node
-        relabel_configs:
-          - source_labels: [__address__]
-            regex: "(.*):10250"
-            replacement: "${1}:9100"
-            target_label: __address__
+      # Node hardware metrics arrive via Alloy remote-write
+      # (prometheus.exporter.unix on every node) — no scrape job needed.
 
       # Blackbox HTTP probes of our endpoints (EDIT targets as you add sites).
       - job_name: blackbox-http

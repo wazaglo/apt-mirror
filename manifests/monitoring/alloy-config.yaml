@@ -47,3 +47,23 @@ data:
         url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
       }
     }
+
+    // Node hardware metrics (replaces the node-exporter DaemonSet).
+    // Reads the HOST filesystems mounted below; scraped locally, pushed out.
+    prometheus.exporter.unix "node" {
+      procfs_path = "/host/proc"
+      sysfs_path  = "/host/sys"
+      rootfs_path = "/host/root"
+    }
+
+    prometheus.scrape "node" {
+      targets         = prometheus.exporter.unix.node.targets
+      scrape_interval = "30s"
+      forward_to      = [prometheus.remote_write.prom.receiver]
+    }
+
+    prometheus.remote_write "prom" {
+      endpoint {
+        url = "http://prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+      }
+    }

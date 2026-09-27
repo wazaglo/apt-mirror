@@ -18,7 +18,6 @@ resources:
   - prometheus-config.yaml
   - prometheus-deployment.yaml
   - prometheus-service.yaml
-  - node-exporter-daemonset.yaml
   - blackbox-config.yaml
   - blackbox-deployment.yaml
   - blackbox-service.yaml

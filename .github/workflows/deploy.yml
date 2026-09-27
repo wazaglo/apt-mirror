@@ -50,7 +50,8 @@ jobs:
         run: kubectl kustomize "${{ env.KUSTOMIZE_DIR }}/" > rendered.yaml
 
       - name: Client-side dry run
-        run: kubectl apply --dry-run=client -f rendered.yaml
+        # No cluster in this job: skip OpenAPI validation (needs an apiserver).
+        run: kubectl apply --dry-run=client --validate=false -f rendered.yaml
 
       - name: Upload rendered manifests
         uses: actions/upload-artifact@v4
