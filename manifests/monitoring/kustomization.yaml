@@ -6,3 +6,8 @@ resources:
   - secret.yaml
   - deployment.yaml
   - service.yaml
+  - loki-sa.yaml
+  - loki-config.yaml
+  - loki-deployment.yaml
+  - loki-service.yaml
+  - grafana-datasources.yaml

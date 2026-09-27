@@ -36,6 +36,8 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/grafana
+            - name: provisioning-datasources
+              mountPath: /etc/grafana/provisioning/datasources
           readinessProbe:
             httpGet:
               path: /api/health
@@ -59,3 +61,6 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: grafana-data
+        - name: provisioning-datasources
+          configMap:
+            name: grafana-datasources
