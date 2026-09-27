@@ -7,6 +7,10 @@ on:
     paths:
       - 'manifests/**'
       - '.github/workflows/deploy.yml'
+  pull_request:
+    paths:
+      - 'manifests/**'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
@@ -17,52 +21,144 @@ concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
+  NAMESPACE: nginx-demo
+  DEPLOYMENT: nginx
+  KUSTOMIZE_DIR: manifests
+  KUBECTL_VERSION: v1.29.2
+
 jobs:
-  deploy:
-    name: Apply manifests to EKS
+  validate:
+    name: Validate manifests (no cluster)
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: Show kubectl version
+        run: kubectl version --client
+
+      - name: Kustomize build
+        run: kubectl kustomize "${{ env.KUSTOMIZE_DIR }}/" > rendered.yaml
+
+      - name: Client-side dry run
+        run: kubectl apply --dry-run=client -f rendered.yaml
+
+      - name: Upload rendered manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendered-manifests
+          path: rendered.yaml
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    name: Apply manifests to EKS
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: validate
+    # PRs only validate; real deploys happen on push to main or manual dispatch.
+    if: github.event_name != 'pull_request'
+    defaults:
+      run:
+        shell: bash
+    env:
+      AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check required config
+        run: |
+          set -u
+          missing=0
+          if [ -z "${AWS_DEPLOY_ROLE_ARN:-}" ]; then
+            echo "::error::Missing secret AWS_DEPLOY_ROLE_ARN (IAM role for OIDC)."
+            missing=1
+          fi
+          if [ -z "${AWS_REGION:-}" ]; then
+            echo "::error::Missing variable AWS_REGION (e.g. eu-central-1)."
+            missing=1
+          fi
+          if [ -z "${EKS_CLUSTER_NAME:-}" ]; then
+            echo "::error::Missing variable EKS_CLUSTER_NAME."
+            missing=1
+          fi
+          exit "$missing"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: eks-gitops-deploy
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
         with:
-          version: latest
+          version: ${{ env.KUBECTL_VERSION }}
 
       - name: Update kubeconfig
         run: |
+          set -euo pipefail
           aws eks update-kubeconfig \
-            --name "${{ vars.EKS_CLUSTER_NAME }}" \
-            --region "${{ vars.AWS_REGION }}"
+            --name "${EKS_CLUSTER_NAME}" \
+            --region "${AWS_REGION}"
+          kubectl cluster-info
+          kubectl auth can-i create deployments -n "${NAMESPACE}"
 
       - name: Build manifests
-        run: kubectl kustomize manifests/ > rendered.yaml
+        run: |
+          set -euo pipefail
+          kubectl kustomize "${KUSTOMIZE_DIR}/" > rendered.yaml
+          kubectl apply --dry-run=client -f rendered.yaml
 
       - name: Show pending changes
-        run: kubectl diff -f rendered.yaml || true
+        # kubectl diff exit codes: 0 = no diff, 1 = diff found, >1 = error.
+        # A diff must not fail the job, but real errors must.
+        run: |
+          set -uo pipefail
+          kubectl diff -f rendered.yaml
+          status=$?
+          if [ "$status" -gt 1 ]; then
+            echo "::error::kubectl diff failed with exit code $status"
+            exit "$status"
+          fi
+          exit 0
 
       - name: Apply manifests
-        run: kubectl apply -f rendered.yaml
-
-      - name: Wait for rollouts
         run: |
-          namespaces=$(kubectl create -f rendered.yaml --dry-run=client \
-            -o jsonpath='{.metadata.namespace}{"\n"}' | sed '/^$/d' | sort -u)
-          for ns in $namespaces; do
-            echo "Waiting on namespace: $ns"
-            kubectl -n "$ns" wait \
-              --for=condition=Available \
-              --timeout=180s \
-              deployment --all
-          done
+          set -euo pipefail
+          kubectl apply -f rendered.yaml
+
+      - name: Wait for rollout
+        run: |
+          set -euo pipefail
+          kubectl -n "${NAMESPACE}" rollout status "deployment/${DEPLOYMENT}" --timeout=180s
+
+      - name: Verify
+        run: |
+          set -euo pipefail
+          kubectl -n "${NAMESPACE}" get "deployment/${DEPLOYMENT}" svc/nginx -o wide
+          kubectl -n "${NAMESPACE}" get pods -l app=nginx -o wide
 
       - name: Report status
         if: always()
-        run: kubectl get deployment,pod,service -A -o wide
+        run: kubectl -n "${NAMESPACE}" get deployment,pod,service -o wide
+
+      - name: Upload rendered manifests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendered-manifests
+          path: rendered.yaml
+          if-no-files-found: error
+          retention-days: 7

@@ -13,3 +13,15 @@ configMapGenerator:
     files:
       - sites/_default.conf
       - sites/grafana.azubisuccess.space.conf
+
+# Generator output has no namespace of its own — pin it so the ConfigMap
+# lands in nginx-demo where the Deployment mounts it (otherwise it defaults
+# to `default` and nginx pods can't find their config).
+patches:
+  - target:
+      kind: ConfigMap
+      name: nginx-sites
+    patch: |-
+      - op: add
+        path: /metadata/namespace
+        value: nginx-demo
