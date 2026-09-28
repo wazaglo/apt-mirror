@@ -32,11 +32,11 @@ spec:
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
 
-  # SUSPENDED ON PURPOSE. The sync Deployment is replicas: 0, so nothing pulls
-  # ~118 GiB until you scale it up. Un-suspend this at the same time.
-  #   kubectl -n mirrors patch cronjob debian12-mirror-sync-trigger \
-  #     -p '{"spec":{"suspend":false}}'
-  suspend: true
+  # Active. The 118 GiB first sync will not finish in one 10:00-17:58 window —
+  # the nodegroup drains mid-run — so this fires every day to roll the pod and
+  # let apt-mirror resume. It converges over a few days, then each run is a
+  # short incremental refresh.
+  suspend: false
 
   jobTemplate:
     spec:

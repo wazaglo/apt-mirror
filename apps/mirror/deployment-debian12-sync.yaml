@@ -19,10 +19,11 @@ metadata:
   labels:
     app: debian12-mirror-sync
 spec:
-  # 0 so the first deploy does not start a ~118 GiB download. Set to 1 (or
-  # scale up by hand) when you actually want the initial pull; the 10:00 UTC
-  # trigger then keeps it current nightly.
-  replicas: 0
+  # 1 — sync enabled. The first run pulls ~118 GiB; expect it to be cut short by
+  # the 17:58 UTC nodegroup drain. apt-mirror keeps its state, so each daily
+  # trigger resumes where the last one stopped and it converges over a few
+  # days rather than finishing in one run.
+  replicas: 1
 
   selector:
     matchLabels:
@@ -53,9 +54,9 @@ spec:
           # lives in the image (apps/mirror/image/) so it is reviewable and
           # rebuildable alongside the manifests; only the schedule lives here.
           #
-          # Pinned by tag until 2.0 is on Docker Hub, then swap for the digest
-          # (SECURITY.md). pr-validate only rejects :latest, so the tag passes.
-          image: wazaglo/debian12-mirror:2.0
+          # Pinned by digest (SECURITY.md). Built from apps/mirror/image/ — the
+          # same files are in this repo, so the image is reproducible.
+          image: wazaglo/debian12-mirror@sha256:44084d8aae55947d056278c3164ac3714393c02d9162b7f65c419cf6cbbcf5a8
           imagePullPolicy: IfNotPresent
 
           # apt-mirror writes the whole spool. The access point forces POSIX
