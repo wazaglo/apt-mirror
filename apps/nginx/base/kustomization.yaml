@@ -14,6 +14,7 @@ configMapGenerator:
     files:
       - sites/_default.conf
       - sites/grafana.azubisuccess.space.conf
+      - sites/debian-mirror.azubisuccess.space.conf
 
 # Generator output has no namespace of its own — pin it so the ConfigMap
 # lands in nginx-demo where the Deployment mounts it (otherwise it defaults

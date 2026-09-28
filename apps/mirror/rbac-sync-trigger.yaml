@@ -1,0 +1,51 @@
+# RBAC for the 10:00 UTC sync trigger.
+#
+# The trigger's only job is to patch the sync-at annotation on the
+# debian12-mirror-sync Deployment. That is a `patch` on one namespaced
+# deployment — deliberately not a ClusterRole, and deliberately not broader
+# than needed. It cannot read secrets, exec, or touch any other namespace.
+#
+# CI can manage all three objects: serviceaccounts is in the core rule and
+# rbac.authorization.k8s.io roles/rolebindings are in the eks-gitops-deployer
+# ClusterRole. Creating a Role is also allowed here because the CI identity
+# already holds `patch` on deployments itself, so it is not privilege
+# escalation.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: debian12-sync-trigger
+  namespace: mirrors
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: debian12-sync-trigger
+  namespace: mirrors
+rules:
+  # patch: stamp the sync-at annotation to roll the sync Deployment.
+  # get: read .spec.replicas so the trigger can report that the sync is
+  # deliberately scaled to zero instead of starting it.
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    resourceNames:
+      - debian12-mirror-sync
+    verbs:
+      - get
+      - patch
+  # No list/watch: the trigger only ever addresses one named object.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: debian12-sync-trigger
+  namespace: mirrors
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: debian12-sync-trigger
+subjects:
+  - kind: ServiceAccount
+    name: debian12-sync-trigger
+    namespace: mirrors

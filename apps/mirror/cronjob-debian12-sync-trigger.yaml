@@ -1,0 +1,100 @@
+# Fires at 10:00 UTC and rolls the sync Deployment, which is what actually
+# starts apt-mirror. The CronJob does no syncing itself.
+#
+# Triggering by patching the pod-template annotation works because the sync
+# Deployment uses strategy: Recreate — a template change produces a new
+# ReplicaSet, so the old pod (holding the EFS mount) is fully stopped before
+# the new one starts. That preserves the single-writer invariant. Patching a
+# plain Deployment under RollingUpdate instead would briefly run two
+# apt-mirror processes against one spool.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: debian12-mirror-sync-trigger
+  namespace: mirrors
+  labels:
+    app: debian12-mirror-sync
+spec:
+  # 10:00 UTC. The cluster is scaled to zero overnight: nodes terminate at
+  # 17:58 and are relaunched by 10:00, and KEDA scales apps up at 10:05 (see
+  # infra/scheduler and apps/*/base/scaledobjects.yaml). A run any earlier has
+  # nowhere to land.
+  schedule: "0 10 * * *"
+  timeZone: Etc/UTC
+
+  # Only one trigger at a time. If a previous run is stuck, skip rather than
+  # pile rollouts onto the sync Deployment.
+  concurrencyPolicy: Forbid
+
+  # If the cluster is slow to hand back nodes at 10:00, allow a late start
+  # rather than dropping the day's sync.
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+
+  # SUSPENDED ON PURPOSE. The sync Deployment is replicas: 0, so nothing pulls
+  # ~118 GiB until you scale it up. Un-suspend this at the same time.
+  #   kubectl -n mirrors patch cronjob debian12-mirror-sync-trigger \
+  #     -p '{"spec":{"suspend":false}}'
+  suspend: true
+
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: debian12-sync-trigger
+          containers:
+            - name: trigger
+              # kubectl only; no apt tooling needed. Pinned by tag until the
+              # digest is recorded (SECURITY.md).
+              image: bitnami/kubectl:1.29
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/bash
+                - -c
+              args:
+                - |
+                  set -euo pipefail
+
+                  STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+                  # --record forces a change even if two runs land in the same
+                  # second, so the pod template genuinely differs.
+                  kubectl -n mirrors patch deployment debian12-mirror-sync \
+                    --type merge \
+                    --record \
+                    -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"mirror.azubisuccess.space/sync-at\":\"${STAMP}\"}}}}}" \
+                    >/dev/null
+
+                  echo "Triggered debian12-mirror-sync at ${STAMP}"
+
+                  # Do not roll the pod if the sync Deployment is scaled to
+                  # zero — that is the deliberate "paused" state, and a trigger
+                  # should not silently un-pause it.
+                  REPLICAS="$(kubectl -n mirrors get deployment debian12-mirror-sync -o jsonpath='{.spec.replicas}')"
+                  if [ "${REPLICAS}" = "0" ]; then
+                    echo "::notice::debian12-mirror-sync is scaled to 0 — not starting it."
+                  fi
+
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 128Mi
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 1001
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+                readOnlyRootFilesystem: true
+              volumeMounts:
+                # readOnlyRootFilesystem: kubectl needs a writable HOME/cache.
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir: {}

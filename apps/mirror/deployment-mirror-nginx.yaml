@@ -1,0 +1,98 @@
+# Read-only HTTP front end for the mirror spool. Reuses the name of the
+# hand-applied Deployment so CI adopts it rather than leaving a second one.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: debian12-mirror-nginx
+  namespace: mirrors
+  labels:
+    app: debian12-mirror-nginx
+spec:
+  # 1, not 2. The previous hand-applied Deployment asked for 2 and the second
+  # pod never scheduled: "5 Too many pods" — the t3.small nodegroup is already
+  # at its pod ceiling. Scale up only with a nodegroup that has room.
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: debian12-mirror-nginx
+
+  strategy:
+    type: Recreate
+    rollingUpdate: null
+
+  template:
+    metadata:
+      labels:
+        app: debian12-mirror-nginx
+    spec:
+      containers:
+        - name: nginx
+          # TODO pin by digest once the tag is on Docker Hub (SECURITY.md).
+          image: nginx:1.27-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerName: http
+              containerPort: 80
+              protocol: TCP
+
+          # The stock nginx image runs workers as uid 101. That is fine here
+          # because this access point is POSIX 1000:1000 with 0755 dirs and
+          # apt-mirror writes 0644 files — unlike a 0700/0:0 access point, which
+          # would 403 every request and force runAsUser: 0.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 101
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+
+          volumeMounts:
+            # readOnly: a mirror served over HTTP must not be writable, and this
+            # stops an nginx bug from writing into the spool that apt-mirror
+            # treats as authoritative.
+            - name: mirror-storage
+              mountPath: /usr/share/nginx/html/mirror
+              readOnly: true
+            - name: nginx-conf
+              mountPath: /etc/nginx/conf.d
+              readOnly: true
+            # readOnlyRootFilesystem needs writable scratch space.
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-run
+              mountPath: /var/run
+
+      volumes:
+        - name: mirror-storage
+          persistentVolumeClaim:
+            claimName: debian12-mirror-pvc
+        - name: nginx-conf
+          configMap:
+            name: mirror-nginx-conf
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}

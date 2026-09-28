@@ -1,0 +1,58 @@
+# Serving config for the mirror web server. The stock nginx image only serves
+# /usr/share/nginx/html, but apt-mirror writes to mirror/<host>/<root>/, so the
+# URLs would otherwise be /deb.debian.org/debian/dists/bookworm/Release. These
+# two aliases give clients the clean paths:
+#   /debian/          -> mirror/deb.debian.org/debian/
+#   /debian-security/ -> mirror/security.debian.org/debian-security/
+# which is what the apt sources in docs use.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mirror-nginx-conf
+  namespace: mirrors
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name _;
+
+        root /usr/share/nginx/html/mirror;
+        autoindex on;
+
+        # apt fetches exact paths (Release, Packages.xz, *.deb) and never needs
+        # a directory index, but autoindex makes the mirror browsable by hand.
+        # Values are read-only; a mirror must never be writable over HTTP.
+
+        location /debian/ {
+            alias /usr/share/nginx/html/mirror/deb.debian.org/debian/;
+            autoindex on;
+        }
+
+        location /debian-security/ {
+            alias /usr/share/nginx/html/mirror/security.debian.org/debian-security/;
+            autoindex on;
+        }
+
+        # Anything else 404s rather than exposing the spool layout.
+        location / {
+            autoindex on;
+        }
+
+        # Health endpoint for probes. Deliberately not "/" — autoindex on a
+        # 67k-file tree is slow to render and would fail a probe timeout.
+        # An exact-match location, so it wins over every prefix below.
+        location = /healthz {
+            access_log off;
+            return 200 "ok\n";
+            add_header Content-Type text/plain;
+        }
+
+        # NOTE: do not add a `location ~* \.(deb|xz|gz)$` block here to set long
+        # cache headers. nginx evaluates regex locations before prefix
+        # locations, so it would win over the /debian/ alias above and resolve
+        # the request against `root` — every .deb would 404. If you want
+        # per-extension caching later, rewrite the paths instead of aliasing
+        # (drop the aliases and serve the raw mirror/<host>/<root> tree), or put
+        # the caching in the front proxy where the URI is passed through
+        # unchanged (see apps/nginx/base/sites/debian-mirror.azubisuccess.space.conf).
+    }

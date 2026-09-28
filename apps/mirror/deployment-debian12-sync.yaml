@@ -1,0 +1,91 @@
+# Long-running apt-mirror sync container. It syncs once when its pod starts,
+# then idles. The schedule lives in cronjob-debian12-sync-trigger.yaml, which
+# rolls this pod at 10:00 UTC by patching the sync-at annotation below.
+#
+# Why a Deployment and not a per-run Job:
+#   - the EFS mount stays warm instead of being re-established nightly
+#   - the spool is a single-writer resource, and Recreate guarantees the old
+#     pod has fully released it before the new one starts
+#   - the container image is stateless tooling; the schedule stays in git
+#
+# apt-mirror, not debmirror: the previous image used debmirror with
+# --root=/debian and a dist list including bookworm-security, which does not
+# exist under that root. That is a hard 404 and aborted every run.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: debian12-mirror-sync
+  namespace: mirrors
+  labels:
+    app: debian12-mirror-sync
+spec:
+  # 0 so the first deploy does not start a ~118 GiB download. Set to 1 (or
+  # scale up by hand) when you actually want the initial pull; the 10:00 UTC
+  # trigger then keeps it current nightly.
+  replicas: 0
+
+  selector:
+    matchLabels:
+      app: debian12-mirror-sync
+
+  strategy:
+    # NOT RollingUpdate. Two apt-mirror processes on one EFS tree fight over
+    # the lock and can interleave a half-written pool. Recreate fully stops the
+    # old pod before starting the new one.
+    type: Recreate
+
+  template:
+    metadata:
+      labels:
+        app: debian12-mirror-sync
+      annotations:
+        # Bumped by the 10:00 UTC trigger CronJob. Any change here forces a new
+        # ReplicaSet, which is what makes the pod re-run its sync.
+        mirror.azubisuccess.space/sync-at: "never"
+    spec:
+      # Long enough for apt-mirror to release its lock and close files if the
+      # nodegroup drains underneath it.
+      terminationGracePeriodSeconds: 300
+      containers:
+        - name: debian12-sync
+          # The image entrypoint lays down the spool skeleton, installs the
+          # ConfigMap config, runs apt-mirror, then idles. The sync procedure
+          # lives in the image (apps/mirror/image/) so it is reviewable and
+          # rebuildable alongside the manifests; only the schedule lives here.
+          #
+          # Pinned by tag until 2.0 is on Docker Hub, then swap for the digest
+          # (SECURITY.md). pr-validate only rejects :latest, so the tag passes.
+          image: wazaglo/debian12-mirror:2.0
+          imagePullPolicy: IfNotPresent
+
+          # apt-mirror writes the whole spool. The access point forces POSIX
+          # 1000:1000 regardless of client uid, but root is what the compose
+          # version was proven with — do not second-guess it.
+          securityContext:
+            runAsUser: 0
+            runAsNonRoot: false
+
+          # Nodes are t3.small (1.4 GiB allocatable) and already
+          # memory-overcommitted. apt-mirror is IO-bound, not CPU-bound.
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+
+          volumeMounts:
+            - name: mirror-data
+              mountPath: /var/spool/apt-mirror
+            - name: sync-conf
+              mountPath: /conf
+              readOnly: true
+      volumes:
+        - name: mirror-data
+          persistentVolumeClaim:
+            claimName: debian12-mirror-pvc
+        - name: sync-conf
+          configMap:
+            name: debian12-sync-conf
+            # Must be executable for postmirror.sh to be installable and run.
+            defaultMode: 0555

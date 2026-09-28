@@ -1,0 +1,19 @@
+# Serves the spool that debian12-mirror-sync writes. ClusterIP, fronted by the
+# existing nginx/ALB in the nginx-demo namespace — see
+# apps/nginx/base/sites/debian-mirror.azubisuccess.space.conf.
+apiVersion: v1
+kind: Service
+metadata:
+  name: debian12-mirror-service
+  namespace: mirrors
+  labels:
+    app: debian12-mirror-nginx
+spec:
+  type: ClusterIP
+  selector:
+    app: debian12-mirror-nginx
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

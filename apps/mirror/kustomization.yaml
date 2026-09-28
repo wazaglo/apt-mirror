@@ -12,4 +12,15 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - debian12-mirror-pvc.yaml
-  - efs-test-deployment.yaml
+
+  # Sync side: writes the spool into the PVC. Scaled to 0 until you want the
+  # first ~118 GiB pull.
+  - configmap-debian12-sync.yaml
+  - deployment-debian12-sync.yaml
+  - rbac-sync-trigger.yaml
+  - cronjob-debian12-sync-trigger.yaml
+
+  # Serving side: read-only HTTP over the spool, fronted by nginx-demo/ALB.
+  - configmap-mirror-nginx.yaml
+  - deployment-mirror-nginx.yaml
+  - service.yaml
