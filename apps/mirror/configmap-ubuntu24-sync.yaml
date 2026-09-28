@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ubuntu24-sync-conf
+  namespace: mirrors
+data:
+  mirror.list: |
+    #### Ubuntu 24.04 noble amd64, main + restricted, served from EFS ####
+    set base_path    /var/spool/apt-mirror
+    set mirror_path  $base_path/mirror
+    set skel_path    $base_path/skel
+    set var_path     $base_path/var
+    set cleanscript $var_path/clean.sh
+    set defaultarch  amd64
+    set postmirror_script $base_path/var/postmirror.sh
+    set run_postmirror 1
+    set nthreads     10
+    set _tilde       0
+    set use_proxy    0
+
+    # Ubuntu keeps its security suite under the SAME /ubuntu root, unlike
+    # Debian whose bookworm-security is a separate /debian-security archive.
+    # One root, three dists, no 404 risk here.
+    #
+    # main + restricted only. Including universe and multiverse roughly doubles
+    # the archive (noble is ~241 GiB as scoped) for packages a controlled
+    # internal patch estate rarely needs.
+    deb-amd64 http://archive.ubuntu.com/ubuntu noble main restricted
+    deb-amd64 http://archive.ubuntu.com/ubuntu noble-updates main restricted
+    deb-amd64 http://archive.ubuntu.com/ubuntu noble-security main restricted
+
+    clean http://archive.ubuntu.com/ubuntu
+
+  apt.conf: |
+    Acquire::Languages "none";
+    Acquire::GD::Base::Enable  "false";
+    Acquire::DEP11::Enable  "false";
+    # Without this apt-mirror falls back to gpgv against an empty ~/.gnupg in
+    # the container and every dist fails "Can't check signature: No public key".
+    # The keyring package is ubuntu-keyring, not debian-archive-keyring, so the
+    # filename differs from the Debian image's.
+    signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg;
+
+  postmirror.sh: |
+    #!/bin/bash
+    # Runs from apt-mirror after a successful sync (run_postmirror 1).
+    # apt-mirror skips dep11 metadata, but apt clients expect it, so fetch the
+    # hash-verified variants. Translation bloat is pruned.
+    set -e
+    find /var/spool/apt-mirror/mirror -name "Translation-*" -delete 2>/dev/null || true
+
+    MIRROR_BASE="/var/spool/apt-mirror/mirror/archive.ubuntu.com/ubuntu/dists"
+    for SUITE in noble noble-updates noble-security; do
+      for COMP in main restricted; do
+        if [ "$SUITE" = "noble" ] && [ "$COMP" = "restricted" ]; then
+          continue
+        fi
+        mkdir -p "${MIRROR_BASE}/${SUITE}/${COMP}/dep11"
+        for EXT in gz xz; do
+          curl -fsSL --retry 3 -o "${MIRROR_BASE}/${SUITE}/${COMP}/dep11/Components-amd64.yml.${EXT}" \
+            "http://archive.ubuntu.com/ubuntu/dists/${SUITE}/${COMP}/dep11/Components-amd64.yml.${EXT}" \
+            || echo "WARN: dep11 fetch failed for ${SUITE}/${COMP}.${EXT}"
+        done
+      done
+    done

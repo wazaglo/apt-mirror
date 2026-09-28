@@ -8,6 +8,13 @@ resources:
   - deployment-debian12-sync.yaml
   - cronjob-debian12-sync-trigger.yaml
 
+  # Ubuntu 24.04 noble. Separate sync (own access point, own lock, own
+  # schedule) but shares the one serving tier.
+  - pvc-ubuntu24.yaml
+  - configmap-ubuntu24-sync.yaml
+  - deployment-ubuntu24-sync.yaml
+  - cronjob-ubuntu24-sync-trigger.yaml
+
   - configmap-snapshot.yaml
   - cronjob-debian12-snapshot.yaml
 

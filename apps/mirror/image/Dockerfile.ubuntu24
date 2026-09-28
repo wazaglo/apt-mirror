@@ -1,0 +1,30 @@
+# Ubuntu 24.04 (noble) sync image.
+#
+# Build from this directory so entrypoint.sh is in context:
+#   docker build -f Dockerfile.ubuntu24 -t wazaglo/ubuntu24-mirror:<tag> .
+#
+# The entrypoint is shared with the Debian image — it is distro-agnostic. The
+# only real difference between the two images is the base OS, because the
+# signing keyring package has a different name on each.
+#
+# ubuntu-keyring is the equivalent of debian-archive-keyring and is required:
+# apt-mirror verifies every Release/InRelease against it, and without it all
+# dists fail "Can't check signature: No public key". xz-utils unpacks the .xz
+# Release files. curl is needed by the postmirror dep11 fetch.
+# See ../../../docs/mirror.md.
+FROM ubuntu:24.04
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      apt-mirror \
+      ubuntu-keyring \
+      ca-certificates \
+      curl \
+      xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Syncs once on start, then idles. The CronJob rolls the pod to start the next
+# run; exiting instead would make the Deployment restart-loop.
+ENTRYPOINT ["/entrypoint.sh"]

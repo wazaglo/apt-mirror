@@ -63,6 +63,9 @@ spec:
             - name: mirror-storage
               mountPath: /srv/apt-mirror
               readOnly: true
+            - name: ubuntu-storage
+              mountPath: /srv/ubuntu
+              readOnly: true
             - name: nginx-conf
               mountPath: /etc/nginx/conf.d
               readOnly: true
@@ -75,6 +78,9 @@ spec:
         - name: mirror-storage
           persistentVolumeClaim:
             claimName: debian12-mirror-pvc
+        - name: ubuntu-storage
+          persistentVolumeClaim:
+            claimName: ubuntu24-mirror-pvc
         - name: nginx-conf
           configMap:
             name: mirror-nginx-conf

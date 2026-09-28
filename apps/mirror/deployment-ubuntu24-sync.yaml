@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ubuntu24-mirror-sync
+  namespace: mirrors
+  labels:
+    app: ubuntu24-mirror-sync
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ubuntu24-mirror-sync
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: ubuntu24-mirror-sync
+      annotations:
+        mirror.azubisuccess.space/sync-at: "never"
+    spec:
+      terminationGracePeriodSeconds: 300
+      containers:
+        - name: ubuntu24-sync
+          image: wazaglo/ubuntu24-mirror@sha256:5accc1ac9f56d1bbbe8c13af201697629920faba0c35b45cb4f25052f241ba83
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 0
+            runAsNonRoot: false
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: mirror-data
+              mountPath: /var/spool/apt-mirror
+            - name: sync-conf
+              mountPath: /conf
+              readOnly: true
+      volumes:
+        - name: mirror-data
+          persistentVolumeClaim:
+            claimName: ubuntu24-mirror-pvc
+        - name: sync-conf
+          configMap:
+            name: ubuntu24-sync-conf
+            defaultMode: 0555

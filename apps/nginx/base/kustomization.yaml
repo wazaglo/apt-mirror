@@ -13,6 +13,7 @@ configMapGenerator:
       - sites/_default.conf
       - sites/grafana.azubisuccess.space.conf
       - sites/debian-mirror.azubisuccess.space.conf
+      - sites/ubuntu-mirror.azubisuccess.space.conf
 
 patches:
   - target:

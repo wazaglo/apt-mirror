@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ubuntu24-mirror-pvc
+  namespace: mirrors
+  annotations:
+    efs.csi.aws.com/volume-id: fs-0b0491ead2bac1c8c
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: efs-mirror-sc
+  volumeName: ubuntu24-mirror-efs
+  resources:
+    requests:
+      storage: 300Gi

@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: debian12-sync-trigger
+  name: mirror-sync-trigger
   namespace: mirrors
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: debian12-sync-trigger
+  name: mirror-sync-trigger
   namespace: mirrors
 rules:
   - apiGroups:
@@ -16,6 +16,7 @@ rules:
       - deployments
     resourceNames:
       - debian12-mirror-sync
+      - ubuntu24-mirror-sync
     verbs:
       - get
       - patch
@@ -23,13 +24,13 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: debian12-sync-trigger
+  name: mirror-sync-trigger
   namespace: mirrors
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: debian12-sync-trigger
+  name: mirror-sync-trigger
 subjects:
   - kind: ServiceAccount
-    name: debian12-sync-trigger
+    name: mirror-sync-trigger
     namespace: mirrors

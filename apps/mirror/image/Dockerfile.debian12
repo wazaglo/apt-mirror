@@ -1,0 +1,24 @@
+# Debian 12 (bookworm) sync image.
+#
+# Build from this directory so entrypoint.sh is in context:
+#   docker build -f Dockerfile.debian12 -t wazaglo/debian12-mirror:<tag> .
+#
+# debian-archive-keyring supplies the bookworm and bookworm-security signing
+# keys apt-mirror verifies Release/InRelease against; without it every dist
+# fails "Can't check signature: No public key". xz-utils unpacks the .xz
+# Release files. See ../../../docs/mirror.md.
+FROM debian:12-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      apt-mirror \
+      debian-archive-keyring \
+      ca-certificates \
+      xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Syncs once on start, then idles. The CronJob rolls the pod to start the next
+# run; exiting instead would make the Deployment restart-loop.
+ENTRYPOINT ["/entrypoint.sh"]

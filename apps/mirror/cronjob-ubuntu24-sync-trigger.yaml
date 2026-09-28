@@ -1,28 +1,25 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: debian12-mirror-sync-trigger
+  name: ubuntu24-mirror-sync-trigger
   namespace: mirrors
   labels:
-    app: debian12-mirror-sync
+    app: ubuntu24-mirror-sync
 spec:
-  schedule: "0 10 * * *"
+  schedule: "30 12 * * *"
   timeZone: Etc/UTC
-
   concurrencyPolicy: Forbid
-
   startingDeadlineSeconds: 3600
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
-
-  suspend: false
-
+  suspend: true
   jobTemplate:
     spec:
-      backoffLimit: 2
+      backoffLimit: 3
       template:
         spec:
           restartPolicy: Never
+          terminationGracePeriodSeconds: 120
           serviceAccountName: mirror-sync-trigger
           containers:
             - name: trigger
@@ -34,34 +31,28 @@ spec:
               args:
                 - |
                   set -euo pipefail
-
                   STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
                   export HOME=/tmp
-
-                  kubectl -n mirrors patch deployment debian12-mirror-sync \
+                  kubectl -n mirrors patch deployment ubuntu24-mirror-sync \
                     --type merge \
                     -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"mirror.azubisuccess.space/sync-at\":\"${STAMP}\"}}}}}" \
                     >/dev/null
-
-                  echo "Triggered debian12-mirror-sync at ${STAMP}"
-
-                  REPLICAS="$(kubectl -n mirrors get deployment debian12-mirror-sync -o jsonpath='{.spec.replicas}')"
+                  echo "Triggered ubuntu24-mirror-sync at ${STAMP}"
+                  REPLICAS="$(kubectl -n mirrors get deployment ubuntu24-mirror-sync -o jsonpath='{.spec.replicas}')"
                   if [ "${REPLICAS}" = "0" ]; then
-                    echo "::notice::debian12-mirror-sync is scaled to 0 — not starting it."
+                    echo "::notice::ubuntu24-mirror-sync is scaled to 0 — not starting it."
                   fi
-
+              env:
+                - name: HOME
+                  value: /tmp
+                - name: KUBECONFIG
+                  value: /tmp/kubeconfig
               resources:
                 requests:
                   cpu: 50m
                   memory: 64Mi
                 limits:
                   memory: 128Mi
-              env:
-                - name: HOME
-                  value: /tmp
-                - name: KUBECONFIG
-                  value: /tmp/kubeconfig
               securityContext:
                 runAsNonRoot: true
                 runAsUser: 1001

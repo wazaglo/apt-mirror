@@ -25,6 +25,11 @@ data:
             autoindex on;
         }
 
+        location /ubuntu/ {
+            alias /srv/ubuntu/mirror/archive.ubuntu.com/ubuntu/;
+            autoindex on;
+        }
+
         # Point-in-time snapshots, hardlinked by mirror-snapshot-conf. Layout is
         # snapshots/<name>/{debian,debian-security}/, so a client pins a frozen
         # package set with:
@@ -56,9 +61,7 @@ data:
         # NOTE: do not add a `location ~* \.(deb|xz|gz)$` block here to set long
         # cache headers. nginx evaluates regex locations before prefix
         # locations, so it would win over the /debian/ alias above and resolve
-        # the request against `root` — every .deb would 404. If you want
-        # per-extension caching later, rewrite the paths instead of aliasing
-        # (drop the aliases and serve the raw mirror/<host>/<root> tree), or put
-        # the caching in the front proxy where the URI is passed through
-        # unchanged (see apps/nginx/base/sites/debian-mirror.azubisuccess.space.conf).
+        # the request against `root` — every .deb would 404. Put caching in the
+        # edge proxy instead, where the URI is passed through unchanged.
+        # See docs/mirror.md.
     }
