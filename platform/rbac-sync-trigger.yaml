@@ -5,11 +5,22 @@
 # deployment — deliberately not a ClusterRole, and deliberately not broader
 # than needed. It cannot read secrets, exec, or touch any other namespace.
 #
-# CI can manage all three objects: serviceaccounts is in the core rule and
-# rbac.authorization.k8s.io roles/rolebindings are in the eks-gitops-deployer
-# ClusterRole. Creating a Role is also allowed here because the CI identity
-# already holds `patch` on deployments itself, so it is not privilege
-# escalation.
+# MANUAL, not CI — and not because of ADR-0004 cluster-scope rules, which these
+# objects would otherwise satisfy (namespaced Roles are CI-manageable). They
+# live here because of a bootstrap cycle:
+#
+#   a RoleBinding's roleRef is validated at creation, so the Role it names must
+#   already exist. `kubectl diff` in deploy.yml dry-run-creates each object
+#   before anything is applied, so on a cluster where neither exists yet the
+#   RoleBinding dry-run is rejected with NotFound and diff exits 2. The deploy
+#   job treats >1 as a hard error, so the pipeline dies BEFORE the apply step
+#   and nothing lands — including the mirror itself.
+#
+# Keeping these three objects out of envs/dev removes that ordering
+# dependency. Apply once, by hand:
+#   kubectl apply -f platform/rbac-sync-trigger.yaml
+#
+# Re-apply after any change to the Role's rules.
 apiVersion: v1
 kind: ServiceAccount
 metadata:

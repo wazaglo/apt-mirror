@@ -14,10 +14,10 @@ resources:
   - debian12-mirror-pvc.yaml
 
   # Sync side: writes the spool into the PVC. Scaled to 0 until you want the
-  # first ~118 GiB pull.
+  # first ~118 GiB pull. The trigger's RBAC is NOT here — see
+  # platform/rbac-sync-trigger.yaml for the bootstrap-cycle reason.
   - configmap-debian12-sync.yaml
   - deployment-debian12-sync.yaml
-  - rbac-sync-trigger.yaml
   - cronjob-debian12-sync-trigger.yaml
 
   # Serving side: read-only HTTP over the spool, fronted by nginx-demo/ALB.
