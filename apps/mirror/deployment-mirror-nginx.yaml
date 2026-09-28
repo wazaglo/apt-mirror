@@ -32,7 +32,10 @@ spec:
           image: nginx:1.27-alpine
           imagePullPolicy: IfNotPresent
           ports:
-            - containerName: http
+            # `name`, not `containerName` — ContainerPort has no such field and
+            # the API server rejects the whole Deployment on a strict-decode
+            # error. The name is what lets the probes target it by name.
+            - name: http
               containerPort: 80
               protocol: TCP
 

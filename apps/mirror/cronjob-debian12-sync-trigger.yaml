@@ -60,11 +60,15 @@ spec:
 
                   STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-                  # --record forces a change even if two runs land in the same
-                  # second, so the pod template genuinely differs.
+                  # readOnlyRootFilesystem: kubectl wants a writable HOME for its
+                  # cache, and /tmp is the only writable path mounted.
+                  export HOME=/tmp
+
+                  # Second-precision stamp is enough to force a template change;
+                  # concurrencyPolicy: Forbid means two runs cannot collide in
+                  # the same second. (--record is deprecated, so it is not used.)
                   kubectl -n mirrors patch deployment debian12-mirror-sync \
                     --type merge \
-                    --record \
                     -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"mirror.azubisuccess.space/sync-at\":\"${STAMP}\"}}}}}" \
                     >/dev/null
 
@@ -84,6 +88,11 @@ spec:
                   memory: 64Mi
                 limits:
                   memory: 128Mi
+              env:
+                - name: HOME
+                  value: /tmp
+                - name: KUBECONFIG
+                  value: /tmp/kubeconfig
               securityContext:
                 runAsNonRoot: true
                 runAsUser: 1001
