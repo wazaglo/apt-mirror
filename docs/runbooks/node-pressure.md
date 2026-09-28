@@ -6,8 +6,25 @@
 0/N nodes are available: M Too many pods, K node(s) didn't satisfy plugin(s) [NodeAffinity].
 ```
 
-**Cause:** each node is at its pod ceiling. `t3.small` allows 11. The usual
-culprits are DaemonSets (Alloy, EFS CSI) plus the workloads themselves.
+**Cause:** the cluster has **one free pod slot**. 5 nodes x 11 = 55 allocatable,
+and 54 are in use. This is the normal state, not an accident, and it is why:
+
+| constraint | value |
+|---|---|
+| mirror serving tier | `replicas: 1` — a 2nd replica has never scheduled |
+| Grafana | 1 replica (also correct: one SQLite writer) |
+| prometheus / loki / blackbox | `maxSurge: 0`, so a rollout needs no spare pod |
+| sync containers | one per distro, and they are permanent — they idle holding the EFS mount |
+
+**Check the number before adding any pod:**
+
+```bash
+kubectl get pods -A --no-headers | grep -vcE 'Completed|Error'   # keep under 55
+```
+
+A DaemonSet adding pods is the usual surprise: Alloy and the EFS CSI node
+plugin consume one slot per node each, so the ceiling is per-node, not
+cluster-wide.
 
 **Diagnose**
 

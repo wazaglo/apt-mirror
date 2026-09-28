@@ -16,6 +16,25 @@ gh run view <run-id> --repo wazaglo/apt-mirror --log-failed
 
 ## Traps already hit here (do not repeat)
 
+0. **A new RBAC object in `envs/` kills the whole deploy.** `kubectl diff` runs
+   before apply and dry-run-creates each object in isolation. A RoleBinding
+   whose `roleRef` Role does not exist yet is rejected, diff exits 2, and the
+   job dies *before applying anything* — so a change that looks additive
+   silently ships nothing. Bootstrap RBAC belongs in `platform/`, applied by
+   hand.
+1. **A new directory under `apps/` deploys nothing, and CI stays green.**
+   Kustomize is not a recursive walker. Verify with
+   `kubectl kustomize envs/dev/ | grep -c '^kind:'`.
+2. **`kustomize build` and `--dry-run=client` do not validate schema.** An
+   invented field (`containerName` on `ContainerPort`) passed both and was
+   rejected only by `--dry-run=server`. Use it whenever the API server is
+   involved.
+3. **A deploy is triggered only by `apps/**`, `envs/**`, or the workflow
+   file.** A commit touching only `platform/`, `infra/` or `terraform/` will not
+   run the workflow at all. That is correct — CI cannot apply those paths — but
+   it means you must dispatch manually to test:
+   `gh workflow run deploy.yml -f environment=dev`.
+
 1. **`kubectl apply --dry-run=client` needs an apiserver.** Even with
    `--validate=false` it tries discovery on `localhost:8080` and dies. The
    validate job therefore does `kustomize build` + a YAML sanity check; the

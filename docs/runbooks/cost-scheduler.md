@@ -49,6 +49,32 @@ no such limit.
 **Do not add a second trigger for the off period.** It reintroduces the
 midnight-wrap problem and makes the morning gap ambiguous.
 
+## The mirror's own schedule
+
+Three jobs, all of which must land **inside** the 10:00–17:54 window or they
+have no nodes to run on:
+
+| job | time (UTC) | what it does |
+|---|---|---|
+| `debian12-mirror-sync-trigger` | 10:00 | rolls the Debian sync pod, which downloads the archive |
+| `ubuntu24-mirror-sync-trigger` | 12:30 | same for Ubuntu |
+| `debian12-mirror-snapshot` | 12:30 | hardlink snapshot (currently `suspend: true`) |
+
+Ubuntu is staggered off the Debian slot deliberately — two 250 GiB syncs
+competing for the same t3.small nodes is slower than doing them in sequence.
+
+**The sync containers are Deployments, not CronJobs.** They idle with
+`sleep infinity` after a sync, holding the EFS mount warm, and the trigger
+rolls the pod to start the next run. That means they hold a pod slot
+permanently — see [node-pressure.md](node-pressure.md).
+
+**A sync interrupted by the 17:58 drain resumes, it does not restart.**
+apt-mirror keeps its state in the spool, and the Deployment recreates the pod
+when nodes return at 10:00.
+
+**`dists/` 404s until a sync completes** — indexes are staged in `skel/` and
+only promoted at the end. Not a fault; see [ingress-routing.md](ingress-routing.md).
+
 ## What is scheduled, and what is deliberately not
 
 Scheduled (ScaledObject, scales to 0 overnight):

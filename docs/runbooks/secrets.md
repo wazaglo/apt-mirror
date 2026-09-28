@@ -1,6 +1,6 @@
 # Runbook: secrets
 
-Policy and threat model live in [SECURITY.md](../SECURITY.md). This is the
+Policy and threat model live in [SECURITY.md](../../SECURITY.md). This is the
 mechanics.
 
 ## Where secrets live

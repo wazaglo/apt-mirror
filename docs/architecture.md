@@ -1,96 +1,144 @@
 # Architecture
 
 ```
-                       Internet
-                          │  HTTPS (ACM *.azubisuccess.space)
-                          ▼
-              ┌───────────────────────────┐
-              │  AWS ALB (internet-facing)│  sg-0306e5045f5a22414
-              │  :80 → 301 → :443          │
-              └─────────────┬─────────────┘
-                            │ Host header preserved
-              ┌─────────────▼─────────────┐
-              │  nginx (nginx-demo, x2)   │  ClusterIP
-              │  sites/*.conf:             │
-              │   grafana.azubisuccess.space → grafana.monitoring:3000
-              │   _default (ALB health)   │
-              └─────────────┬─────────────┘
-                            │
-              ┌─────────────▼─────────────┐
-              │  Grafana (monitoring, x2) │  ClusterIP :3000
-              │  /var/lib/grafana          │
-              └──────┬──────────────┬───────┘
-                     │ EFS          │ provisions datasources
-                     │ (fs-…::fsap-088c…, 472:472)
-              ┌──────▼──────┐  ┌────▼─────────────┐
-              │ EFS + CSI   │  │ Loki :3100        │
-              └─────────────┘  │  TSDB → S3        │
-                                │  azubi-logs       │
-              ┌─────────────────▼──────────────────┐
-              │ Alloy DaemonSet (x1 per node)      │
-              │  - tails /var/log/pods (all pods)  │──► Loki
-              │  - prometheus.exporter.unix (node) │──► remote_write
-              └────────────────────────────────────┘
-                     │
-              ┌──────▼─────────────────────────────┐
-              │ Prometheus :9090 (1 replica)       │
-              │  scrapes: self, blackbox            │
-              └──────┬─────────────────────────────┘
-                     │ probes /probe
-              ┌──────▼──────────┐
-              │ blackbox :9115  │──► external + in-cluster targets
-              └─────────────────┘
+                    internet
+                       │
+        ┌──────────────┴───────────────┐
+        │  Route53 (external provider)  │
+        │  debian-mirror.azubisuccess   │
+        │  ubuntu-mirror.azubisuccess   │
+        │  grafana.azubisuccess         │
+        └──────────────┬───────────────┘
+                       │ CNAME
+        ┌──────────────┴───────────────┐
+        │  ALB  internet-facing        │
+        │  wildcard *.azubisuccess     │
+        │  us-west-1a + us-west-1c      │
+        └──────────────┬───────────────┘
+                       │ HTTP :80, all hosts
+        ┌──────────────┴───────────────┐
+        │  nginx edge      nginx-demo  │  Host-based vhost selects the backend
+        │  replicas 2                   │
+        └───┬───────────────────────┬──┘
+            │ /debian*, /ubuntu*     │ /  (grafana)
+            │                        │
+   ┌────────┴─────────┐    ┌─────────┴────────┐
+   │ mirror-nginx     │    │ grafana          │
+   │ replicas 1       │    │ replicas 1       │
+   │ read-only mounts │    │ monitoring       │
+   └────────┬─────────┘    └──────────────────┘
+            │
+   ┌────────┴──────────────┬───────────────────┐
+   │ /srv/apt-mirror       │ /srv/ubuntu        │
+   │ debian12-mirror-sync  │ ubuntu24-mirror-  │
+   │ read-write            │ sync  read-write  │
+   └────────┬──────────────┴─────────┬─────────┘
+            │                        │
+   ┌────────┴────────┐      ┌────────┴────────┐
+   │ AP debian12-…   │      │ AP ubuntu24-…   │
+   │ /mirrors/debian/12│     │ /mirrors/ubuntu/24.04
+   └────────┬────────┘      └────────┬────────┘
+            └───────────┬────────────┘
+                        │
+        ┌───────────────┴────────────────┐
+        │  EFS archcloud-mirror-efs       │
+        │  fs-0b0491ead2bac1c8c          │
+        │  Standard, elastic, 2 mount    │
+        │  targets, backups DISABLED     │
+        └────────────────────────────────┘
 ```
 
-## Design rules
+## Distro shape
 
-| Concern | Owner | Applied by |
+The two distros are not symmetric, and the difference is the single most
+important thing to know about this system.
+
+| | Debian 12 | Ubuntu 24.04 |
 |---|---|---|
-| Apps + configs (namespaced) | `apps/**` | CI (GitHub Actions, OIDC) |
-| Cluster-wide objects, storage, CRDs | `platform/**` | manual `kubectl apply` |
-| Helm releases (ALB controller, EFS CSI, ESO) | `infra/**` | manual `helm upgrade --install` |
-| VPC / EKS / IAM as code | `terraform/**` | manual `terraform plan` + `apply` |
-| Secrets | SSM Parameter Store | External Secrets Operator → K8s Secret |
+| archive root | `deb.debian.org/debian` | `archive.ubuntu.com/ubuntu` |
+| security | **separate** root, `/debian-security` | **same** root, `dists/noble-security` |
+| dists | bookworm, bookworm-updates, bookworm-security | noble, noble-updates, noble-security |
+| components | main, contrib, non-free, non-free-firmware | main, restricted |
+| served at | `/debian/`, `/debian-security/` | `/ubuntu/` |
+| archive size | ~118 GiB | ~259 GiB |
 
-**Why the split:** the CI IAM role is deliberately namespace-scoped, so a
-compromised workflow cannot create ClusterRoles, StorageClasses, or webhooks.
-Anything cluster-scoped is an explicit human action. See
-[SECURITY.md](../SECURITY.md).
+Ubuntu carries only `main` + `restricted`. Adding `universe` and `multiverse`
+roughly doubles the archive for packages a controlled internal estate rarely
+needs; `noble` with all four components is available upstream if that changes.
 
-## Traffic path in one paragraph
+## Serving
 
-A user hits `https://grafana.azubisuccess.space`. DNS (Hostinger) CNAMEs to the
-ALB. The ALB terminates TLS with the ACM wildcard cert, sees a catch-all
-Ingress rule, and forwards to nginx pods with the original `Host`. nginx
-matches the `server_name` block and proxies to the Grafana Service in
-`monitoring`, which load-balances across Grafana pods sharing the EFS volume.
-TLS never re-encrypts inside the cluster (nginx speaks plain HTTP), which is
-normal for this pattern — traffic between ALB and pods is VPC-internal.
+One `mirror-nginx` serves both distros. It mounts each distro's PVC read-only
+and aliases the archive path per distro:
+
+```
+/debian/          →  /srv/apt-mirror/mirror/deb.debian.org/debian/
+/debian-security/ →  /srv/apt-mirror/mirror/security.debian.org/debian-security/
+/ubuntu/          →  /srv/ubuntu/mirror/archive.ubuntu.com/ubuntu/
+/snapshots/       →  /srv/apt-mirror/snapshots/
+/                 →  404
+```
+
+The extra `mirror/` path segment is not a mistake. apt-mirror writes to
+`$base_path/mirror/<host>/<root>/`, so from the serving container the archive
+really is one level deeper than the client URL suggests. Getting this wrong is a
+404 on every package path.
+
+`/` returns 404 deliberately: the spool root holds `mirror/`, `skel/`, `var/`
+and autoindexing it would publish the whole layout to anyone who resolved the
+hostname.
+
+The edge proxy adds one vhost per hostname, each with an explicit `upstream`
+(`least_conn`, `keepalive 32`) pointing at the single ClusterIP Service.
+Balancing across the serving pods is kube-proxy's job; `least_conn` only
+becomes meaningful if the serving tier is ever scaled past 1.
 
 ## Storage
 
-`efs-sc` (provisioner `efs.csi.aws.com`, `efs-ap` mode) with a **static** PV
-bound to access point `fsap-088c8c16707025698` (POSIX `472:472`, root
-`/grafana`). Static rather than dynamic: one deterministic volume for Grafana
-instead of an access point per PVC. `reclaimPolicy: Retain` everywhere —
-deleting the PV will not delete data.
+One EFS filesystem, **one access point per distro**, one static PV each.
 
-Loki ships chunks and indexes to S3 (`azubi-logs`) and keeps only the WAL +
-TSDB cache on `emptyDir`. A pod restart can lose the last few seconds of
-buffered logs; chunks already shipped are safe. Prometheus keeps 6h (dev) /
-24h (prod) of metrics on `emptyDir` for the same reason.
+| distro | access point | root | POSIX |
+|---|---|---|---|
+| Debian 12 | `fsap-020b79f4588c2d482` | `/mirrors/debian/12` | 1000:1000 |
+| Ubuntu 24.04 | `fsap-02586212ea002c468` | `/mirrors/ubuntu/24.04` | 1000:1000 |
 
-## Scaling
+Binding is static, and the reason is not stylistic — dynamic provisioning is
+IAM-blocked on this cluster. See
+[ADR-0005](adr/0005-static-pv-per-efs-access-point.md).
 
-`t3.small` caps at 11 pods per node. The node group (`ng-eks`) runs 5 nodes
-now. `t3.medium` is unavailable on this account (Free Tier restriction), so
-capacity growth is node count only. Install Karpenter if pods start queueing
-again — it would replace manual `update-nodegroup-config` calls.
+The access point forces POSIX 1000:1000 on every request regardless of the
+client uid, so the sync containers can run as root and the serving container
+runs as uid 101 and still reads everything. Dirs are 0755 and files 0644, which
+is what makes a non-root nginx work here.
 
-## Deliberate simplifications
+## Sync
 
-* Grafana runs 2 replicas on **one** SQLite database over NFS — fine for a
-  lab, can hit "database is locked" under concurrent writes. One replica or an
-  external Postgres for anything real.
-* Prometheus and Loki are single-writer, no redundancy.
-* TLS is terminated at the ALB; nothing in-cluster is mTLS.
+Each distro has an independent sync Deployment, trigger CronJob, ConfigMap and
+access point. They share only the serving tier.
+
+- Schedule: Debian 10:00, Ubuntu 12:30 UTC. Staggered so they do not contend.
+- The trigger patches a `sync-at` annotation, which rolls the pod. The new pod
+  syncs, then idles holding the mount warm.
+- `strategy: Recreate` — never RollingUpdate. The spool is single-writer and two
+  apt-mirror processes on one EFS tree will interleave a half-written `pool/`.
+- A `flock` on `/var/spool/apt-mirror/.apt-mirror.lock` serialises sync against
+  snapshot.
+
+## Observability
+
+`monitoring` holds Grafana (1 replica), Prometheus on EFS, Loki, blackbox
+exporter and an Alloy DaemonSet. It exists to watch the mirror and the edge —
+there is no demo workload left. The mirror endpoint probe list is in
+`apps/monitoring/base/prometheus-config.yaml`.
+
+## Deliberate constraints
+
+- **5 nodes, 55 pod slots, 54 in use.** Everything about the replica counts
+  follows from this.
+- **No dedicated node group for the mirror.** It shares `ng-eks` (t3.small) and
+  therefore inherits the nightly scale-to-zero and the pod ceiling.
+- **Standard EFS with 2 mount targets and backups disabled.** One Zone with a
+  single mount target would be roughly a quarter of the storage cost and would
+  avoid cross-AZ egress, but it means re-syncing ~360 GiB.
+- **Snapshots cover Debian only.** Ubuntu's spool is a separate filesystem and
+  one nginx `alias` cannot span two roots.

@@ -1,145 +1,107 @@
 # apt-mirror
 
-Production-shaped EKS platform, deployed from git. Kubernetes manifests for
-apps, GitHub Actions for delivery, AWS-native storage, DNS, TLS, and a full
-observability stack — with the cluster-wide surfaces deliberately kept out of
-CI's reach.
+Centralised Debian and Ubuntu package mirrors running inside EKS, with the
+archive on EFS and served through the existing ALB + nginx edge. Internal
+clients point apt at an internal endpoint instead of reaching the public Debian
+and Ubuntu archives directly.
 
-**Cluster:** `eks-lab` (EKS 1.36) · **Region:** `us-west-1` · **Account:** `195675606509`
-**Live URL:** <https://grafana.azubisuccess.space>
-
----
-
-## What runs here
-
-| Component | Where | Storage | Applied by |
-|---|---|---|---|
-| nginx (multi-site reverse proxy) | `nginx-demo` | — | CI |
-| Grafana ×2 | `monitoring` | EFS (`fs-0ddb…`, AP 472:472) | CI |
-| Prometheus | `monitoring` | EFS (`fs-0ddb…`, AP 1000:1000) | CI |
-| Loki | `monitoring` | S3 `azubi-logs` | CI |
-| blackbox exporter | `monitoring` | `emptyDir` | CI |
-| Alloy DaemonSet (logs + node metrics) | `monitoring` | `emptyDir` | CI |
-| ALB controller, EFS CSI, External Secrets, external-dns | `kube-system`, `external-secrets`, `external-dns` | — | Helm (manual) |
-| KEDA (nightly scale-to-zero) | `keda` | — | Helm (manual) |
-| Node group scheduler (Lambda + EventBridge) | — | — | AWS (manual) |
-| ClusterRoles, StorageClass, PVs, ClusterSecretStore | — | — | `kubectl` (manual) |
-| VPC, EKS, IAM | — | — | Terraform (manual) |
-
-Traffic: `DNS → ALB (TLS) → nginx (Host-based) → app Service`. Logs:
-`Alloy → Loki → S3`. Metrics: `Alloy → remote_write → Prometheus → Grafana`.
-
-**Compute is off every night.** KEDA scales all workloads to 0 outside
-10:05–17:54 UTC and a Lambda terminates the node group at 17:58, relaunching at
-10:00. The site returns 502 while the nodes are gone. Full details, override
-procedure and troubleshooting: [docs/runbooks/cost-scheduler.md](docs/runbooks/cost-scheduler.md).
-
-## Repository layout
-
-```
-apps/                      # everything CI deploys (namespaced only)
-  nginx/base/              #   + sites/*.conf, one file per FQDN
-    overlays/{dev,prod}/
-  monitoring/base/         #   grafana, loki, alloy, prometheus, blackbox
-    overlays/{dev,prod}/
-  alb/                     #   ALB controller ServiceAccount (IRSA)
-envs/{dev,prod}/           # environment roots — the CI deploy target
-platform/                  # cluster-scoped, applied MANUALLY
-infra/                     # Helm releases + the node scheduler Lambda
-  keda/                    #   KEDA values + infra ScaledObjects (manual)
-  scheduler/               #   Lambda: node group off 17:58 / on 10:00 UTC
-terraform/{networking,eks} # infra as code, run manually, NOT in CI
-docs/                      # architecture, onboarding, runbooks, ADRs, ACTIONS
-bootstrap → platform/      # CI deploy RBAC (moved)
-```
-
-`apps/**` and `envs/**` are the only paths that reach the cluster from CI.
-
-## Quick start
-
-```bash
-git clone https://github.com/wazaglo/apt-mirror.git && cd apt-mirror
-kubectl kustomize envs/dev/ > /dev/null && echo "manifests render OK"
-
-aws eks update-kubeconfig --region us-west-1 --name eks-lab
-kubectl get nodes
-```
-
-Deploying, validating, and the full onboarding path: **[docs/onboarding.md](docs/onboarding.md)**.
-
-## How deployment works
-
-1. Branch off `main`, edit under `apps/`.
-2. PR → `pr-validate` builds every overlay, rejects `:latest` images; `secret-scan` runs gitleaks.
-3. Review + merge to `main` → `deploy` assumes the OIDC role and applies `envs/dev/`.
-4. Prod is a separate overlay, deployed only on manual dispatch.
-
-The CI role can only manage namespaced workloads. Cluster-scoped and Helm-managed
-objects are applied by a human — a compromised workflow cannot widen its own
-permissions. See [ADR-0004](docs/adr/0004-push-gitops-least-privilege.md) and [SECURITY.md](SECURITY.md).
-
-## Secrets
-
-No credentials in git. Values live in **SSM Parameter Store** and reach the
-cluster through the **External Secrets Operator**. Reading, rotating, and
-adding secrets: [docs/runbooks/secrets.md](docs/runbooks/secrets.md).
-
-## Adding a site (one FQDN → one backend)
-
-```bash
-# 1. write the server block
-cat > apps/nginx/base/sites/api.azubisuccess.space.conf <<'EOF'
-server {
-  listen 80;
-  server_name api.azubisuccess.space;
-  location / {
-    proxy_pass http://api.default.svc.cluster.local:8080;
-    proxy_set_header Host $host;
-  }
-}
-EOF
-
-# 2. register it in the generator list
-#    apps/nginx/base/kustomization.yaml -> configMapGenerator.files
-
-# 3. point DNS at the ALB, then push and reload nginx
-kubectl -n nginx-demo rollout restart deploy/nginx
-```
-
-`apps/nginx/base/sites/_default.conf` must keep serving `/` — it is the ALB
-health-check target. Breaking it fails every target at once.
-
-## Operations
-
-| Need | Go to |
+| | |
 |---|---|
-| Symptom → fix | [docs/runbooks/README.md](docs/runbooks/README.md) |
-| Nightly schedule, manual override, cost | [docs/runbooks/cost-scheduler.md](docs/runbooks/cost-scheduler.md) |
-| What was actually done, with commands | [docs/ACTIONS.md](docs/ACTIONS.md) |
-| What is installed / next | [docs/ROADMAP.md](docs/ROADMAP.md) |
-| How it fits together | [docs/architecture.md](docs/architecture.md) |
-| Why we chose this | [docs/adr/](docs/adr/) |
-| Recent changes | [CHANGELOG.md](CHANGELOG.md) |
+| Debian 12 (bookworm) | `https://debian-mirror.azubisuccess.space` |
+| Ubuntu 24.04 (noble) | `https://ubuntu-mirror.azubisuccess.space` |
+| Snapshots | `https://debian-mirror.azubisuccess.space/snapshots/<name>/` |
+| Cluster | `eks-lab` (EKS 1.36), `us-west-1` |
+| Storage | EFS `archcloud-mirror-efs` `fs-0b0491ead2bac1c8c`, one access point per distro |
 
-## Contributing
+**Start here → [docs/mirror.md](docs/mirror.md)** for the operating guide and
+the failure modes that are easy to reintroduce.
 
-Branch `feat/*`, Conventional Commits, get a review before merge.
-Local validation commands: [CONTRIBUTING.md](CONTRIBUTING.md).
+## Client configuration
 
-## Known limitations (deliberate)
+Debian 12:
 
-- Grafana runs 2 replicas on one SQLite file over NFS — can hit
-  "database is locked"; prod overlay pins 1 replica, real fix is external Postgres.
-- Loki and Prometheus are single-writer with `emptyDir` WAL/cache: a restart
-  drops the last few seconds of unshipped data.
-- TLS terminates at the ALB; in-cluster traffic is plain HTTP.
-- EFS mounts are not using `encryptInTransit`; Grafana has no
-  `GF_SECURITY_SECRET_KEY`; cluster Secrets are not KMS-encrypted.
-- No alerting yet (Prometheus has no Alertmanager rules) and no alerting
-  receiver wired.
-- `terraform/` mirrors live infrastructure but is not adopted with
-  `terraform import` — applying it as-is would create duplicates.
+```
+deb http://debian-mirror.azubisuccess.space/debian bookworm main contrib non-free non-free-firmware
+deb http://debian-mirror.azubisuccess.space/debian bookworm-updates main contrib non-free non-free-firmware
+deb http://debian-mirror.azubisuccess.space/debian-security bookworm-security main contrib non-free non-free-firmware
+```
 
-## License
+Ubuntu 24.04:
 
-[MIT](LICENSE)
+```
+deb http://ubuntu-mirror.azubisuccess.space/ubuntu noble main restricted
+deb http://ubuntu-mirror.azubisuccess.space/ubuntu noble-updates main restricted
+deb http://ubuntu-mirror.azubisuccess.space/ubuntu noble-security main restricted
+```
+
+HTTPS works too — the ALB terminates the wildcard `*.azubisuccess.space`
+certificate. Internal-only clients can use `http://` to avoid a CA bundle
+requirement.
+
+A client pinned to a frozen set instead of the live mirror:
+
+```
+deb http://debian-mirror.azubisuccess.space/snapshots/20260928-140036Z/debian bookworm main contrib non-free non-free-firmware
+```
+
+## What is where
+
+```
+apps/
+  mirror/          the product: sync, snapshots, serving tier, image build context
+  nginx/           public edge — host-based vhosts, the ALB Ingress
+  monitoring/      observability for the mirror and the edge
+  alb/             ALB controller service account (IRSA)
+envs/{dev,prod}/   the only directories CI deploys
+platform/          cluster-scoped: PVs, the deploy ClusterRole, trigger RBAC — applied BY HAND
+infra/             Helm releases and the nightly node scheduler — applied BY HAND
+terraform/         VPC and EKS. NOT in CI
+docs/              operating guide, ADRs, runbooks
+```
+
+Deploy model, in one line: `apps/**` and `envs/**` are applied by CI on push to
+`main`; everything cluster-scoped or Helm-managed is applied by a human. The
+reason, and what it costs, is in
+[ADR-0004](docs/adr/0004-push-gitops-least-privilege.md).
+
+## How a sync happens
+
+A trigger CronJob patches a `sync-at` annotation on the sync Deployment, which
+rolls its pod. The new pod runs `apt-mirror` against the EFS spool, then idles
+holding the mount warm until the next trigger.
+
+| job | schedule (UTC) | state |
+|---|---|---|
+| Debian 12 sync | 10:00 daily | active |
+| Ubuntu 24.04 sync | 12:30 daily | active |
+| Snapshot | 12:30 daily | suspended — run by hand first |
+
+Ubuntu is staggered off the Debian slot so the two do not contend for the same
+node bandwidth.
+
+**Compute is off every night.** The node group terminates at 17:58 UTC and
+returns at 10:00, so endpoints answer `502` overnight and a sync in progress is
+interrupted and resumed the next morning. apt-mirror keeps its state, so this
+resumes rather than restarts.
+
+## Capacity
+
+The node group sits at its pod ceiling: 5 nodes × 11 = 55 slots, currently 54 in
+use. That is why the serving tier is a single replica, why Grafana runs one
+replica, and why the monitoring rollouts use `maxSurge: 0`. See
+[node-pressure.md](docs/runbooks/node-pressure.md).
+
+## Repository conventions
+
+- Manifests carry no comments. The reasoning lives in
+  [docs/mirror.md](docs/mirror.md) and [docs/adr/](docs/adr/).
+- Images are pinned by digest.
+- A new app directory must be referenced from an `envs/*/kustomization.yaml`.
+  Kustomize is not a recursive walker, and an unreferenced directory deploys
+  nothing while CI stays green.
+
+## Evidence
+
+`docs/evidence/` holds captured proof of the running system — AWS resource
+state, endpoint checks, and console screenshots. Regenerate with
+`hack/capture-evidence.sh`.

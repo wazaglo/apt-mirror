@@ -2,11 +2,37 @@
 
 **Symptom:** a `*.azubisuccess.space` URL returns 404, 502, or the wrong site.
 
+Hostnames: `debian-mirror` and `ubuntu-mirror` (the package mirrors),
+`grafana` (observability). The ALB has a single host-less rule, so all of them
+reach the same edge nginx and `server_name` picks the backend.
+
+## Before you start: is it 502 because it is the night?
+
+Between **17:58 and 10:00 UTC** the node group is deliberately terminated and
+every endpoint answers 502. That is not a fault. Check the clock before
+debugging anything — see [cost-scheduler.md](cost-scheduler.md).
+
+## 404 is often correct
+
+`/` on a mirror hostname returns **404 on purpose**; the spool root is sealed so
+its layout is not published. And during a first sync, `dists/` 404s because
+apt-mirror stages indexes in `skel/` until the archive finishes:
+
+```bash
+# pool serves immediately, dists only appears when the sync completes
+curl -sSI https://debian-mirror.azubisuccess.space/debian/pool/        # 200
+kubectl -n mirrors logs deploy/debian12-mirror-sync --tail=3          # still running?
+```
+
+Do not change the nginx alias in response to a `dists/` 404 without first
+confirming no sync is in flight.
+
 The chain is: DNS → ALB → nginx (`server_name`) → app Service. Find the broken link:
 
 ```bash
 # 1. DNS
-dig +short grafana.azubisuccess.space
+dig +short debian-mirror.azubisuccess.space
+dig +short ubuntu-mirror.azubisuccess.space
 #   expect: k8s-nginxdem-nginx-….us-west-1.elb.amazonaws.com
 
 # 2. ALB has a listener + rule
