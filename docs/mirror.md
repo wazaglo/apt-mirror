@@ -125,6 +125,24 @@ Deployment restart the pod in a tight loop and re-pull the EFS mount every
 minute; idling keeps the mount warm. A run that ends is a completed run, and
 the next trigger rolls the pod to start a new one.
 
+## First sync: expect 404s until it finishes
+
+`/pool/` appears within seconds of a sync starting, but **`dists/` does not**.
+apt-mirror downloads index files into `$base_path/skel/` and only promotes them
+into `mirror/` once the whole archive has been fetched. So during a first sync:
+
+    /debian/pool/...   -> 200
+    /debian/dists/...  -> 404   (normal, not a misconfiguration)
+
+This looks exactly like the alias-path bug and is not. Do not "fix" the nginx
+alias in response to a `dists/` 404 while a sync is running — check whether a
+sync is in flight first. A sync is:
+
+    kubectl -n mirrors logs deploy/<distro>-mirror-sync --tail=5
+
+Once it completes, `dists/` appears and the endpoint serves indexes. Debmirror
+behaved the same way; this is apt-mirror's staging, not ours.
+
 ## Snapshots
 
 See [ADR-0006](adr/0006-hardlink-snapshots.md). In short: `cp -al` creates
