@@ -1,5 +1,3 @@
-# Read-only HTTP front end for the mirror spool. Reuses the name of the
-# hand-applied Deployment so CI adopts it rather than leaving a second one.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -8,9 +6,6 @@ metadata:
   labels:
     app: debian12-mirror-nginx
 spec:
-  # 1, not 2. The previous hand-applied Deployment asked for 2 and the second
-  # pod never scheduled: "5 Too many pods" — the t3.small nodegroup is already
-  # at its pod ceiling. Scale up only with a nodegroup that has room.
   replicas: 1
 
   selector:
@@ -28,21 +23,13 @@ spec:
     spec:
       containers:
         - name: nginx
-          # TODO pin by digest once the tag is on Docker Hub (SECURITY.md).
           image: nginx:1.27-alpine
           imagePullPolicy: IfNotPresent
           ports:
-            # `name`, not `containerName` — ContainerPort has no such field and
-            # the API server rejects the whole Deployment on a strict-decode
-            # error. The name is what lets the probes target it by name.
             - name: http
               containerPort: 80
               protocol: TCP
 
-          # The stock nginx image runs workers as uid 101. That is fine here
-          # because this access point is POSIX 1000:1000 with 0755 dirs and
-          # apt-mirror writes 0644 files — unlike a 0700/0:0 access point, which
-          # would 403 every request and force runAsUser: 0.
           securityContext:
             runAsNonRoot: true
             runAsUser: 101
@@ -73,20 +60,12 @@ spec:
             periodSeconds: 30
 
           volumeMounts:
-            # readOnly: a mirror served over HTTP must not be writable, and this
-            # stops an nginx bug from writing into the spool that apt-mirror
-            # treats as authoritative.
-            #
-            # Mounted at /srv/apt-mirror to mirror apt-mirror's base_path, so
-            # the paths in mirror-nginx-conf.default.conf read the same way the
-            # ones in mirror.list do.
             - name: mirror-storage
               mountPath: /srv/apt-mirror
               readOnly: true
             - name: nginx-conf
               mountPath: /etc/nginx/conf.d
               readOnly: true
-            # readOnlyRootFilesystem needs writable scratch space.
             - name: nginx-cache
               mountPath: /var/cache/nginx
             - name: nginx-run

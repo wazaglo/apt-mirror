@@ -7,8 +7,6 @@ resources:
   - ingress.yml
   - scaledobjects.yaml
 
-# One file per FQDN in sites/ becomes one key (= filename) in this ConfigMap.
-# Add a site: drop another <fqdn>.conf in sites/ and list it below.
 configMapGenerator:
   - name: nginx-sites
     files:
@@ -16,9 +14,6 @@ configMapGenerator:
       - sites/grafana.azubisuccess.space.conf
       - sites/debian-mirror.azubisuccess.space.conf
 
-# Generator output has no namespace of its own — pin it so the ConfigMap
-# lands in nginx-demo where the Deployment mounts it (otherwise it defaults
-# to `default` and nginx pods can't find their config).
 patches:
   - target:
       kind: ConfigMap

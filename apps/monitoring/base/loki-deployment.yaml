@@ -4,12 +4,7 @@ metadata:
   name: loki
   namespace: monitoring
 spec:
-  # Single binary: keep 1 replica (no shared WAL — 2x would double-ingest).
   replicas: 1
-  # Roll in place: maxSurge 0 means no spare pod is needed. The nodegroup is
-  # at its pod ceiling, so a default 25% surge would leave a rollout
-  # unschedulable and eat the margin the mirror depends on. Brief unavailability
-  # is acceptable — KEDA scales these to 0 every night regardless.
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -26,7 +21,6 @@ spec:
       serviceAccountName: loki
       containers:
         - name: loki
-          # v3.5.0 pinned by digest 2026-09-27.
           image: grafana/loki@sha256:4c431d2e6b9b38718694b31c5d56be7c80dc69c513215fde1aeb5b02cd4e2665
           args:
             - -config.file=/etc/loki/loki.yaml
@@ -60,8 +54,5 @@ spec:
         - name: config
           configMap:
             name: loki-config
-        # WAL + TSDB cache live here; chunks/index ship to S3 continuously.
-        # emptyDir = recent buffered data lost on pod restart. For durable WAL,
-        # swap this for a PVC (efs-sc) later.
         - name: storage
           emptyDir: {}

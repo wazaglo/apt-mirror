@@ -1,5 +1,3 @@
-# Cluster-scoped. CI deploy role CANNOT create these — apply MANUALLY once:
-#   kubectl apply -f manifests/cluster-rbac/
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:

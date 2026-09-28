@@ -1,6 +1,3 @@
-# Cluster-scoped. CI deploy role CANNOT create these (bootstrap/rbac.yaml
-# grants no storageclasses/persistentvolumes) — apply MANUALLY once:
-#   kubectl apply -f manifests/storage/
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:

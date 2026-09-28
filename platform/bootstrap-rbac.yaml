@@ -122,9 +122,6 @@ rules:
       - create
       - update
       - patch
-  # External Secrets CRs are namespaced and hold no secret material (they only
-  # reference SSM keys), so CI may manage them. The ClusterSecretStore itself
-  # is cluster-scoped and stays manual.
   - apiGroups:
       - external-secrets.io
     resources:
@@ -137,9 +134,6 @@ rules:
       - update
       - patch
       - delete
-  # KEDA ScaledObjects (nightly cost schedule). Namespaced and declarative, so CI
-  # may manage them — the keda.sh operator itself and the TriggerAuthentication
-  # / HPA objects it creates stay manual (cluster-scoped RBAC is not granted).
   - apiGroups:
       - keda.sh
     resources:

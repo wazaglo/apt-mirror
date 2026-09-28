@@ -1,5 +1,4 @@
 ---
-# Source: aws-load-balancer-controller/templates/webhook.yaml
 apiVersion: v1
 kind: Secret
 metadata:
@@ -17,7 +16,6 @@ data:
   tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUQ4RENDQXRpZ0F3SUJBZ0lRS0hSanJmYzJOdm14RGxOdEVWeGluakFOQmdrcWhraUc5dzBCQVFzRkFEQXEKTVNnd0pnWURWUVFERXg5aGQzTXRiRzloWkMxaVlXeGhibU5sY2kxamIyNTBjbTlzYkdWeUxXTmhNQjRYRFRJMgpNRGt5TnpFeE1EQTBPRm9YRFRNMk1Ea3lOREV4TURBME9Gb3dKekVsTUNNR0ExVUVBeE1jWVhkekxXeHZZV1F0ClltRnNZVzVqWlhJdFkyOXVkSEp2Ykd4bGNqQ0NBU0l3RFFZSktvWklodmNOQVFFQkJRQURnZ0VQQURDQ0FRb0MKZ2dFQkFLcU15UkcwaWFsNVlabWI5UnhkVmtwUm9HRktUb1dhWVlraHBBNGd3RTk0aE96SWwvMEQwbDdPT3FtRwpzTnphdkxBRWJJL05xek40OENCVTVEd1VUbW8xQkorYmp4bXFnRTBiVWVNeEcrOXo3Zi9YaTFCdnM0TEo1SUlrCkFJdnZJM1hsN0htZ2dITDhqK0lSeXNibGllNUtPdFF5bHFqendXSWh2eWFsKzVxdjhPQ21zakNueHA1OUx2R3AKZlVKMHovRDFJb1c0dGROeWF2QlVqYSt0bXIvcEt3VzgvSmtZTEV3Wmc3UUEwWFpQUUR5Mkg2WVFRTjQvbS9OawpuL0Z1WWt3Y3BxUkl1Qkdac2FBUW11cXl6eS9yMUd5MnRmdElvbUR3NjBUdVpicGVid1NqYk1tUkp3QmMvbWJOCmRNUTJPaXNPbEdpTk5XV0NlS2l2NkUzUHNQVUNBd0VBQWFPQ0FSTXdnZ0VQTUE0R0ExVWREd0VCL3dRRUF3SUYKb0RBZEJnTlZIU1VFRmpBVUJnZ3JCZ0VGQlFjREFRWUlLd1lCQlFVSEF3SXdEQVlEVlIwVEFRSC9CQUl3QURBZgpCZ05WSFNNRUdEQVdnQlJ4c1puYXE4Uk9iU3hxN3JzNDhPNDcxMXdydmpDQnJnWURWUjBSQklHbU1JR2pnaTFoCmQzTXRiRzloWkMxaVlXeGhibU5sY2kxM1pXSm9iMjlyTFhObGNuWnBZMlV1YTNWaVpTMXplWE4wWlcyQ01XRjMKY3kxc2IyRmtMV0poYkdGdVkyVnlMWGRsWW1odmIyc3RjMlZ5ZG1salpTNXJkV0psTFhONWMzUmxiUzV6ZG1PQwpQMkYzY3kxc2IyRmtMV0poYkdGdVkyVnlMWGRsWW1odmIyc3RjMlZ5ZG1salpTNXJkV0psTFhONWMzUmxiUzV6CmRtTXVZMngxYzNSbGNpNXNiMk5oYkRBTkJna3Foa2lHOXcwQkFRc0ZBQU9DQVFFQU1ERFFWUHpXbWRjZ0g0aEoKT2dZbkFuL2NEaVI1SHFkb3NDanVaKzlSNDU1MklIbGhSR3hWbHB0TXZLemJSd3V3NGVxSFoxa1FzTnVQR2tUVwpLc3N2ZlZHM1YwK0pjditKckU2bG8vWlI3ZlgvUllPOU5rbHJ5RURRZXpWSENFcTRzK1FZQlRwRXd3MEtJVERmCjB0TE5RajF1NlpKakJicnVhYmIvTy84dmdmcUc3dVVkWkdGYnRvWHd6R3dadStKb3pBMWg4QWEzWk0zQi8vb0UKTWxkUHFyTm1obUpybGhTMEM3TTUrcTlvdFJCcFhSTzQ0WU1MYTJIRFJWM0xlbk8rSHhZZUd6dzk0TUxNQWhqNQpHODlleVNMTnFKWWxJWGJLSFNyN2hkempLQUVPQXgvYVZma2NZc2tlWlkvcDJwcDNOUFFCSW5WRTdXek9WUndhCmJmandmQT09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
   tls.key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFb3dJQkFBS0NBUUVBcW96SkViU0pxWGxobVp2MUhGMVdTbEdnWVVwT2hacGhpU0drRGlEQVQzaUU3TWlYCi9RUFNYczQ2cVlhdzNOcThzQVJzajgyck0zandJRlRrUEJST2FqVUVuNXVQR2FxQVRSdFI0ekViNzNQdC85ZUwKVUcremdzbmtnaVFBaSs4amRlWHNlYUNBY3Z5UDRoSEt4dVdKN2tvNjFES1dxUFBCWWlHL0pxWDdtcS93NEtheQpNS2ZHbm4wdThhbDlRblRQOFBVaWhiaTEwM0pxOEZTTnI2MmF2K2tyQmJ6OG1SZ3NUQm1EdEFEUmRrOUFQTFlmCnBoQkEzaitiODJTZjhXNWlUQnltcEVpNEVabXhvQkNhNnJMUEwrdlViTGExKzBpaVlQRHJSTzVsdWw1dkJLTnMKeVpFbkFGeitaczEweERZNkt3NlVhSTAxWllKNHFLL29UYyt3OVFJREFRQUJBb0lCQUNzNFFqd2FaRWh1V2kxegpPRXBYM09ZNGlVd2VhSWV5OThTb29jcHl3a2xoWVU0Z0IyUTI4N2pTeWtycnR5WkF5RkJTenJBaWpxQWNwYjJMCnhjcnoybXRQeER3dVQ3VlJYL0lxV2pZWTI5dHlwWDJRUWQzQWNOMVVESFJ1YXpVTEJSRjdrdEcvdXMxbzg0MTIKdE14eW51R2tMZ1JZVFpYREw5Nk9ic0o4amFaRlJmS25MbmNIUHkybmVhUExiL2QvR1pRRjhUejltZEJPa1NKdAp5Y0hPZnVXUkZkamxGTGUrdzhsMExza3pGQVlGZ0dUZGR6UExBT3FYckQ2dUhSdnBVWXhKR0IxTDl1MTlYclNUCkg1amtxVndEem1rN0lxWlhaVXNrZ2ozT3lFK1B4THRPU0VNeW4wZnZmRm5YMHhhL2lCdFFoSGphOFNpSHloMUQKVng1S3ZvRUNnWUVBMXlLU1ZXOXF0cmJuMFVBU1kxVHJnSXhqWFcwOGl0VTkyQXFlZnFRcWlOcHg1VEhKQUg2QwoybGpSTnZzclhSRU00UE5VY2k0Z1pxUzVmdmdDVm9lQ3QyWDBybDVOdFp0cWtFS1MvR1JKSEtMYVF4ZnprK2JpCnd5QnJiMkFRbGx6S2Z4U2VEd3RJZkM5UDFSOGdLWEd3VFpuelRZcVgyMk8vNUNqNklOR2x1aXNDZ1lFQXl2SXAKamh1cHVyNE1JTmwzT25BRVhHcCs4ZS9QTFQ2eFdHNWNHU200Vkt1Q01mR2dhaVlmQWVxSEVCZUNvV05pMUFkUgpkZlV3cEo3QmNmaUM2QloyRUt1S2phR3B6Y2k5QUFwWlRQUFpvY1VZemtzK1E1a3M5K0F2YzNrUy9NVklwa1dOCjhYTmpRODlZRWZRQmNSUVYrUHBJcU9GcmxDaFh2OVBaZVFnNFVWOENnWUJxQjVQdm41WU1yMkRaZEthYlprTWIKZkJXTStrV1lkemlmdmJ3WDFubFFNYmxvcUh6VVRZWFliMlhObjBUai9YOUhieVh6a0dCUHRtZmw5LzNPLzhLZworUkw2eldlblZnM1RRN3lGd0RkNGNacjQ3bGtTVC96N0JvTnN4UC9uMjV2QnZqdVlWb3RIQ1ZwalE0L3FYU256ClZTamcwcW05YXhBc056WHY3dU9yT1FLQmdIaUkwMzEvbUpNOUJOOE55ZTUvVVZmQ09KdGhIdDkwZU1oWTQ0SmUKY1FoNHhONzg3NVdjQnBhUXdKOGlGNGZiQzN0NnpUc040VklrcUNnVXZVc3k2L1NDcmN2bzFIMVFXRkNKMVBnTApiSnJVQVNPbE5OblpSQWdFc3FvV290eFdJQXdCQzRqNFMyQ2U2V1BnVkdyZ3p4d05LdEtDNys0Uzkrc0szQU15CmlxQnBBb0dCQUp3TWlvMzNSMXBhWm5nSUlhVldUNFFXNUtzNkxhdEZURDNvZmIxaHhqU2Jjd0tXeHlZamxMR1QKOFRqVlB4R2RnN01UaHgxeDBOSVcxdyt1SzFuaVp0R2tVamF1ZmxjbS9INVh6ckhmZHNMMUFuOGFwUzhJbThTMwpIay9GMjhKR1N4WVBLdFlTR01vUThKRkNLYjQyeEpMMlRKSUZOc1hXNTZmTjMrdC9XRWtWCi0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==
 ---
-# Source: aws-load-balancer-controller/templates/rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -29,8 +27,6 @@ metadata:
     app.kubernetes.io/instance: aws-load-balancer-controller
     app.kubernetes.io/version: "v3.5.0"
 rules:
-# AUTO-GENERATED from config/rbac/role.yaml by hack/sync-rbac-to-helm.sh
-# Do not edit these rules manually. Run 'make manifests' to update.
 - apiGroups: [""]
   resources: [configmaps]
   verbs: [create, delete, get, update]
@@ -101,7 +97,6 @@ rules:
   resources: [ingressclasses]
   verbs: [get, list, watch]
 ---
-# Source: aws-load-balancer-controller/templates/rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -121,7 +116,6 @@ subjects:
   name: aws-load-balancer-controller
   namespace: kube-system
 ---
-# Source: aws-load-balancer-controller/templates/rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -158,7 +152,6 @@ rules:
   - update
   - patch
 ---
-# Source: aws-load-balancer-controller/templates/rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -179,7 +172,6 @@ subjects:
   name: aws-load-balancer-controller
   namespace: kube-system
 ---
-# Source: aws-load-balancer-controller/templates/service.yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -202,7 +194,6 @@ spec:
     app.kubernetes.io/name: aws-load-balancer-controller
     app.kubernetes.io/instance: aws-load-balancer-controller
 ---
-# Source: aws-load-balancer-controller/templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -298,7 +289,6 @@ spec:
               topologyKey: kubernetes.io/hostname
       priorityClassName: "system-cluster-critical"
 ---
-# Source: aws-load-balancer-controller/templates/ingressclass.yaml
 apiVersion: v1
 kind: List
 metadata:
@@ -327,7 +317,6 @@ items:
   spec:
     controller: ingress.k8s.aws/alb
 ---
-# Source: aws-load-balancer-controller/templates/webhook.yaml
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -527,7 +516,6 @@ webhooks:
     - targetgroupbindings
   sideEffects: None
 ---
-# Source: aws-load-balancer-controller/templates/webhook.yaml
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:

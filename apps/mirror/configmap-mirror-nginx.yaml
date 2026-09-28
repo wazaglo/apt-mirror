@@ -1,10 +1,3 @@
-# Serving config for the mirror web server. The stock nginx image only serves
-# /usr/share/nginx/html, but apt-mirror writes to mirror/<host>/<root>/, so the
-# URLs would otherwise be /deb.debian.org/debian/dists/bookworm/Release. These
-# two aliases give clients the clean paths:
-#   /debian/          -> mirror/deb.debian.org/debian/
-#   /debian-security/ -> mirror/security.debian.org/debian-security/
-# which is what the apt sources in docs use.
 apiVersion: v1
 kind: ConfigMap
 metadata:

@@ -1,5 +1,3 @@
-# Cluster-scoped — apply MANUALLY once (see storageclass.yaml header).
-# Static PV bound to the Grafana access point (POSIX 472:472, /grafana).
 apiVersion: v1
 kind: PersistentVolume
 metadata:

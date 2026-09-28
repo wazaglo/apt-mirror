@@ -1,11 +1,3 @@
-# Hardlink snapshot of the mirror spool.
-#
-# SUSPENDED, run on demand for now:
-#   kubectl -n mirrors create job --from=cronjob/debian12-mirror-snapshot \
-#     mirror-snap-$(date -u +%Y%m%d-%H%M)
-# Creating a Job from the CronJob reuses this exact jobTemplate, so promoting
-# it to scheduled is just setting suspend: false — no second manifest, and
-# nothing written here is thrown away.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -14,64 +6,35 @@ metadata:
   labels:
     app: debian12-mirror-snapshot
 spec:
-  # 12:30 UTC, deliberately.
-  #
-  # Not 09:00: the nodegroup is at zero capacity overnight (out 17:58, back
-  # 10:00), so an earlier job would sit Pending until the morning and then
-  # snapshot a mirror that is about to be written to.
-  #
-  # Not 10:30: the daily sync fires at 10:00 and the first full run took 59
-  # minutes, so that overlaps. 12:30 sits after the sync with hours of margin
-  # before the 17:58 drain. The flock in snapshot.sh is what actually makes
-  # this safe — this schedule just avoids routinely waiting on the lock.
   schedule: "30 12 * * *"
   timeZone: Etc/UTC
 
-  # One snapshot at a time. Two concurrent ones would race on the same
-  # destination name and on link counts.
   concurrencyPolicy: Forbid
 
-  # cp -al walks ~67k inodes at single-digit-millisecond EFS metadata latency.
-  # Minutes, not seconds — but bounded so a pathological run cannot wedge the
-  # schedule.
   startingDeadlineSeconds: 3600
   successfulJobsHistoryLimit: 2
   failedJobsHistoryLimit: 2
 
-  # SUSPENDED ON PURPOSE. Run it by hand first (see the header) and check the
-  # result before letting it fire daily.
   suspend: true
 
   jobTemplate:
     spec:
-      # If the lock is held (sync running), skip the day rather than retry into
-      # the next scheduled attempt.
       backoffLimit: 0
       activeDeadlineSeconds: 5400
       template:
         spec:
           restartPolicy: Never
-          # cp -al is metadata-bound, not memory-bound, and it must be able to
-          # read every inode in the spool. The access point forces POSIX
-          # 1000:1000 on every request regardless of client uid, matching the
-          # sync container.
           securityContext:
             runAsUser: 0
             runAsNonRoot: false
           containers:
             - name: snapshot
-              # Same image as the sync: it already carries cp, find, du, flock
-              # and bash, so snapshotting needs no image of its own.
               image: wazaglo/debian12-mirror@sha256:c512bae3d99d92453bb99034c4436bbd6e0c6699176fb530862cf33dea9632a1
               imagePullPolicy: IfNotPresent
               command: ["/bin/bash", "/conf/snapshot.sh"]
               env:
-                # Retention. Deleting a snapshot only drops link counts, so
-                # each retained one pins whatever the live mirror has since
-                # replaced. 3 is a bound, not a target.
                 - name: SNAPSHOT_KEEP
                   value: "3"
-                # Skip rather than capture a torn tree if a sync overruns.
                 - name: SNAPSHOT_LOCK_WAIT
                   value: "300"
               resources:
@@ -79,7 +42,6 @@ spec:
                   cpu: 200m
                   memory: 256Mi
                 limits:
-                  # No CPU limit: this is pure metadata I/O latency bound.
                   memory: 512Mi
               volumeMounts:
                 - name: spool

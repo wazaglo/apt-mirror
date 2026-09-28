@@ -1,21 +1,3 @@
-# Cluster-scoped — apply MANUALLY once (see storageclass.yaml header).
-#
-# Static PV, not dynamic, and that is forced by the cluster rather than by
-# choice. The EFS CSI driver here is EKS addon-managed and authenticates via
-# addon-owned Pod Identity associations, which take precedence over the
-# service account's IRSA annotation. The Pod Identity role lacks
-# elasticfilesystem:DescribeAccessPoints and CreateAccessPoint, so dynamic
-# provisioning in provisioningMode efs-ap fails on every attempt with:
-#   rpc error: code = Unauthenticated desc = Access Denied
-# and the PVC sits Pending forever. The correctly-permissioned IRSA role
-# (efs-csi-driver-role + AmazonEFSCSIDriverPolicy) is present but unused.
-#
-# A static PV skips the EFS control plane entirely — volumeHandle is resolved
-# at mount time — so it needs no IAM beyond the node's NFS permissions. This
-# is the mechanism grafana-efs and prometheus-efs already use successfully.
-#
-# Bound to access point "debian12-mirror": POSIX 1000:1000, /mirrors/debian/12,
-# perms 0755, on fs-0b0491ead2bac1c8c.
 apiVersion: v1
 kind: PersistentVolume
 metadata:

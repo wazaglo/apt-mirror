@@ -1,7 +1,5 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# Prod environment root — skeleton only. Nothing targets a prod cluster yet;
-# CI validates it but only deploys it on manual dispatch (see deploy.yml).
 resources:
   - ../../apps/nginx/overlays/prod
   - ../../apps/monitoring/overlays/prod

@@ -1,11 +1,5 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# Prod diverges deliberately: longer Prometheus retention.
-#
-# The single-replica Grafana decision used to live here as a patch. It is now in
-# base, because it is not a prod-specific choice — two replicas on one SQLite
-# over EFS NFS is wrong in every environment, and patching it per-overlay meant
-# the base kept advertising 2 replicas that KEDA would immediately undo.
 resources:
   - ../../base
 patches:

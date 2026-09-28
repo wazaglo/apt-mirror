@@ -5,10 +5,6 @@ metadata:
   namespace: monitoring
 spec:
   replicas: 1
-  # Roll in place: maxSurge 0 means no spare pod is needed. The nodegroup is
-  # at its pod ceiling, so a default 25% surge would leave a rollout
-  # unschedulable and eat the margin the mirror depends on. Brief unavailability
-  # is acceptable — KEDA scales these to 0 every night regardless.
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -24,7 +20,6 @@ spec:
     spec:
       containers:
         - name: blackbox
-          # Pinned by digest 2026-09-27 (was :latest).
           image: prom/blackbox-exporter@sha256:e753ff9f3fc458d02cca5eddab5a77e1c175eee484a8925ac7d524f04366c2fc
           args:
             - --config.file=/etc/blackbox/blackbox.yml

@@ -15,7 +15,6 @@ spec:
     spec:
       containers:
         - name: nginx
-          # Pinned by digest 2026-09-27 (was :latest).
           image: nginx@sha256:abe47724e466aeab9a345d8e46a221c2fa8953c7848bb4a3bd9976a7199f8cf2
           ports:
             - containerPort: 80

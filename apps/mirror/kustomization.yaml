@@ -1,31 +1,16 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# Without this file, nothing in apps/mirror reaches the cluster: CI renders
-# only envs/dev/, and kustomize is not a directory walker — a directory that
-# no kustomization references renders as zero objects, silently. That is how
-# the first "Adding mirrors" push deployed nothing while going green.
-#
-# efs-mirror-storageclass.yaml is intentionally NOT listed. It is
-# cluster-scoped and the CI role cannot create StorageClasses, so listing it
-# here would fail the deploy job. Apply it by hand — see the header in that
-# file.
 resources:
   - namespace.yaml
   - debian12-mirror-pvc.yaml
 
-  # Sync side: writes the spool into the PVC. Scaled to 0 until you want the
-  # first ~118 GiB pull. The trigger's RBAC is NOT here — see
-  # platform/rbac-sync-trigger.yaml for the bootstrap-cycle reason.
   - configmap-debian12-sync.yaml
   - deployment-debian12-sync.yaml
   - cronjob-debian12-sync-trigger.yaml
 
-  # Snapshot side: hardlink copies of the spool, servable at /snapshots/<name>/.
-  # Suspended — run by hand first, then set suspend: false to schedule it.
   - configmap-snapshot.yaml
   - cronjob-debian12-snapshot.yaml
 
-  # Serving side: read-only HTTP over the spool, fronted by nginx-demo/ALB.
   - configmap-mirror-nginx.yaml
   - deployment-mirror-nginx.yaml
   - service.yaml

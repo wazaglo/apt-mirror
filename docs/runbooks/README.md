@@ -13,6 +13,7 @@ Symptom → first command → fix. Historical detail for each incident is in
 | CI pipeline red | [pipeline.md](pipeline.md) |
 | Rotating a secret | [secrets.md](secrets.md) |
 | EFS pod won't mount | [efs.md](efs.md) |
+| Mirror 404s, sync stuck, or snapshots | [../mirror.md](../mirror.md) |
 
 ## Universal first steps
 

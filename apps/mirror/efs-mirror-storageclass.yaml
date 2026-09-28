@@ -1,9 +1,3 @@
-# Cluster-scoped. The CI deploy role CANNOT create this (bootstrap-rbac.yaml
-# grants no storageclasses verb), so it is NOT listed in
-# apps/mirror/kustomization.yaml — including it would fail the deploy job with
-# a Forbidden error. Apply MANUALLY once, before the first CI deploy that needs
-# a PVC bound to efs-mirror-sc:
-#   kubectl apply -f apps/mirror/efs-mirror-storageclass.yaml
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -12,22 +6,6 @@ provisioner: efs.csi.aws.com
 parameters:
   provisioningMode: efs-ap
   fileSystemId: fs-0b0491ead2bac1c8c
-  # Inert for this cluster, and kept only to record which access point the
-  # mirror is meant to live on. Dynamic provisioning in provisioningMode efs-ap
-  # cannot run here at all: the EFS CSI driver is addon-managed with Pod
-  # Identity credentials that lack elasticfilesystem:DescribeAccessPoints, so
-  # every attempt fails with "Unauthenticated desc = Access Denied" and the PVC
-  # stays Pending. debian12-mirror-pvc therefore pre-binds to the static PV in
-  # platform/pv-debian12-mirror.yaml, and the driver resolves the target from
-  # that PV's volumeHandle — the StorageClass is only read for the binding
-  # match. See platform/pv-debian12-mirror.yaml for the full explanation.
-  #
-  # Note the flat dotted key if this is ever reused: StorageClass.parameters is
-  # map[string]string, so it cannot be nested YAML —
-  #   parameters:
-  #     provisioningParameters:
-  #       accessPointId: fsap-...
-  # fails with "cannot unmarshal object into ... of type string".
   provisioningParameters.accessPointId: "fsap-020b79f4588c2d482"
   directoryPerms: "755"
   gidRangeStart: "1000"

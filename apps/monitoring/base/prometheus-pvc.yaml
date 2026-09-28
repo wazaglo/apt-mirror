@@ -4,9 +4,6 @@ metadata:
   name: prometheus-data
   namespace: monitoring
   annotations:
-    # Binds to the static PV in platform/pv-prometheus.yaml, which points at EFS
-    # access point fsap-012a38be930c8a207 (POSIX 1000:1000, /prometheus). The PV
-    # is cluster-scoped so it is applied manually, not by CI.
     efs.csi.aws.com/volume-id: fs-0ddb254be08c6267a
 spec:
   accessModes:

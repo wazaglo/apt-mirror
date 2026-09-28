@@ -1,12 +1,9 @@
-# apt-mirror config for the Debian 12 sync. Kept in git (not baked into the
-# image) so changing the dist list is a ConfigMap edit, not an image rebuild.
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: debian12-sync-conf
   namespace: mirrors
 data:
-  # base_path must match the PVC mount in cronjob-debian12-sync.yaml.
   mirror.list: |
     #### Debian 12 bookworm amd64, served from EFS ####
     set base_path    /var/spool/apt-mirror
@@ -32,17 +29,12 @@ data:
     clean https://deb.debian.org/debian
     clean https://security.debian.org/debian-security
 
-  # Without signed-by, apt-mirror falls back to gpgv against ~/.gnupg, which is
-  # empty in the container, and every dist dies with
-  # "Can't check signature: No public key".
   apt.conf: |
     Acquire::Languages "none";
     Acquire::GD::Base::Enable  "false";
     Acquire::DEP11::Enable  "false";
     signed-by=/usr/share/keyrings/debian-archive-keyring.gpg;
 
-  # apt-mirror runs this after a successful sync. Prunes translation bloat
-  # only; dep11/CNF are kept because Debian apt clients expect them.
   postmirror.sh: |
     #!/bin/bash
     set -e

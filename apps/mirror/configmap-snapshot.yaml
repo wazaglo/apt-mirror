@@ -1,6 +1,3 @@
-# Hardlink snapshot logic for the Debian 12 mirror. Kept in git next to the
-# sync config for the same reason: changing retention or layout should be a
-# ConfigMap edit, not an image rebuild.
 apiVersion: v1
 kind: ConfigMap
 metadata:

@@ -4,14 +4,6 @@ metadata:
   name: grafana
   namespace: monitoring
 spec:
-  # 1, not 2. Two Grafana replicas share one SQLite database over EFS NFS, and
-  # concurrent writers hit "database is locked" — this is ADR-0003's own
-  # conclusion, and overlays/prod already pinned it to 1 for the same reason.
-  # A second replica is a latent bug here, not redundancy.
-  #
-  # The pod slot this frees is load-bearing: the nodegroup is at its pod ceiling
-  # and the mirror needs a slot for the Ubuntu sync. Grafana is monitoring UI;
-  # the mirror is the product.
   replicas: 1
   selector:
     matchLabels:
@@ -25,7 +17,6 @@ spec:
         fsGroup: 472
       containers:
         - name: grafana
-          # v13.2.2 pinned by digest 2026-09-27 (was :latest).
           image: grafana/grafana@sha256:ac461fb352abc50da10a51c7d02462e9c05488f11f53f14b3ad79a8145f638a0
           ports:
             - containerPort: 3000
