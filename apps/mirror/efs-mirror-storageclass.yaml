@@ -1,3 +1,9 @@
+# Cluster-scoped. The CI deploy role CANNOT create this (bootstrap-rbac.yaml
+# grants no storageclasses verb), so it is NOT listed in
+# apps/mirror/kustomization.yaml — including it would fail the deploy job with
+# a Forbidden error. Apply MANUALLY once, before the first CI deploy that needs
+# a PVC bound to efs-mirror-sc:
+#   kubectl apply -f apps/mirror/efs-mirror-storageclass.yaml
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -6,6 +12,19 @@ provisioner: efs.csi.aws.com
 parameters:
   provisioningMode: efs-ap
   fileSystemId: fs-0b0491ead2bac1c8c
+  # Required. provisioningMode efs-ap without an access point makes the CSI
+  # driver unable to resolve a target, and the PVC stays Pending forever even
+  # though the file system and its mount targets are healthy. This is AP
+  # "debian12-mirror": POSIX 1000:1000, root /mirrors/debian/12, 0755 — which
+  # is also why directoryPerms/gidRange below are 755/1000-2000.
+  #
+  # Note the flat dotted key. StorageClass.parameters is map[string]string, so
+  # this CANNOT be written as nested YAML:
+  #   parameters:
+  #     provisioningParameters:
+  #       accessPointId: fsap-...
+  # That fails with "cannot unmarshal object into ... of type string".
+  provisioningParameters.accessPointId: "fsap-020b79f4588c2d482"
   directoryPerms: "755"
   gidRangeStart: "1000"
   gidRangeEnd: "2000"

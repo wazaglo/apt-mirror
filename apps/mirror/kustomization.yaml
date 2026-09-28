@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Without this file, nothing in apps/mirror reaches the cluster: CI renders
+# only envs/dev/, and kustomize is not a directory walker — a directory that
+# no kustomization references renders as zero objects, silently. That is how
+# the first "Adding mirrors" push deployed nothing while going green.
+#
+# efs-mirror-storageclass.yaml is intentionally NOT listed. It is
+# cluster-scoped and the CI role cannot create StorageClasses, so listing it
+# here would fail the deploy job. Apply it by hand — see the header in that
+# file.
+resources:
+  - namespace.yaml
+  - debian12-mirror-pvc.yaml
+  - efs-test-deployment.yaml

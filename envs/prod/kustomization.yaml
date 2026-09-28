@@ -6,3 +6,4 @@ resources:
   - ../../apps/nginx/overlays/prod
   - ../../apps/monitoring/overlays/prod
   - ../../apps/alb
+  - ../../apps/mirror

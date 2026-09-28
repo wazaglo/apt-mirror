@@ -5,3 +5,4 @@ resources:
   - ../../apps/nginx/overlays/dev
   - ../../apps/monitoring/overlays/dev
   - ../../apps/alb
+  - ../../apps/mirror
