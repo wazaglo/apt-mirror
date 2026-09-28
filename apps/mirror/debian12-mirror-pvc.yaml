@@ -3,11 +3,23 @@ kind: PersistentVolumeClaim
 metadata:
   name: debian12-mirror-pvc
   namespace: mirrors
+  annotations:
+    # Binds to the static PV in platform/pv-debian12-mirror.yaml, which points
+    # at EFS access point fsap-020b79f4588c2d482 (POSIX 1000:1000,
+    # /mirrors/debian/12). The PV is cluster-scoped so it is applied manually,
+    # not by CI. Dynamic provisioning is not an option on this cluster — that
+    # file explains why.
+    efs.csi.aws.com/volume-id: fs-0b0491ead2bac1c8c
 spec:
   accessModes:
     - ReadWriteMany
 
   storageClassName: efs-mirror-sc
+
+  # Pre-binding name of the static PV above. Required: without it the PVC asks
+  # the external provisioner to create a volume, which is the code path that
+  # dies on AccessDenied.
+  volumeName: debian12-mirror-efs
 
   resources:
     requests:
