@@ -1,8 +1,7 @@
 # As-built: the mirror on EKS
 
-Historical design record. For current state see [mirror.md](docs/mirror.md), for
-topology see [architecture.md](docs/architecture.md), for what is next see
-[ROADMAP.md](docs/ROADMAP.md).
+Historical design record. For current state see [mirror.md](docs/mirror.md) and
+topology see [architecture.md](docs/architecture.md).
 
 > This file previously held a forward-looking plan dated 2026-09-27. It
 > described a design that was **not** the one built, and it has been rewritten
@@ -80,12 +79,12 @@ Grafana database and Prometheus TSDB are real state.
 | node group | terminated nightly, ~8h/day |
 
 The One Zone option is the obvious win and is deliberately deferred rather than
-forgotten — it requires re-syncing ~360 GiB. See [ROADMAP.md](docs/ROADMAP.md).
+forgotten — it requires re-syncing ~360 GiB.
 
 ## Gotchas that were real, not hypothetical
 
 Every one of these cost time during the build. All are written up in
-[ACTIONS.md](docs/ACTIONS.md); the durable ones have their own ADR.
+[mirror.md](docs/mirror.md); the durable ones have their own ADR.
 
 1. **Debian's security suite is a separate archive root.** Ubuntu's is not.
    Getting this wrong is a 404 that kills the whole sync.

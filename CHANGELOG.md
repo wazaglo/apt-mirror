@@ -37,7 +37,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   The SSM prefix `/eks-gitops/monitoring/*` is deliberately **not** renamed: SSM
   paths are live AWS resources holding the Grafana credentials and are
   independent of the repository name.
-- **Manifests are comment-free** (507 lines moved into `docs/`). Data payloads
+- **Manifests are comment-free** (507 lines moved into `docs/`). Block scalars
+  carry data, not commentary, and were left intact. Data payloads
   in `|` block scalars are untouched — `mirror.list`, `apt.conf`,
   `postmirror.sh`, `snapshot.sh` and the nginx configs all ship their `#` lines,
   because those are read at runtime. Every ConfigMap's `data` was verified

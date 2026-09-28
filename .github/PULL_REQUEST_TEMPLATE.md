@@ -14,5 +14,5 @@
 
 ## Docs updated?
 
-- [ ] `docs/` runbook or `CHANGELOG.md` (`Unreleased`) if behavior changed
+- [ ] `docs/mirror.md` or `CHANGELOG.md` (`Unreleased`) if behavior changed
 - [ ] No secrets committed (`git log -p` self-checked)

@@ -41,8 +41,9 @@ change, not a comment.
 
 The exception is data shipped *inside* a `|` block — `mirror.list`, `apt.conf`,
 `postmirror.sh`, `snapshot.sh`, the nginx configs. Those `#` lines are read at
-runtime by the shell or by nginx. `hack/strip-manifest-comments.py` knows the
-difference; do not strip them with `sed`.
+runtime by the shell or by nginx. Do not strip them with `sed`: it cannot tell a
+comment from a shebang, and it will delete the `#!/bin/bash` lines out of both
+scripts.
 
 **Cluster-scoped objects are applied by hand.** `platform/` and Helm in
 `infra/` never go through CI, and the PR must carry the exact command. This is
@@ -80,4 +81,5 @@ External Secrets.
 
 Behaviour changes need a docs change in the same PR. If it took you a while to
 work out, someone else will hit it — put it in [docs/mirror.md](docs/mirror.md)
-or a runbook. A durable decision gets an ADR in [docs/adr/](docs/adr/).
+in [docs/mirror.md](docs/mirror.md). A durable decision gets an ADR in
+[docs/adr/](docs/adr/).

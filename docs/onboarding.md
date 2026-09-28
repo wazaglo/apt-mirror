@@ -102,8 +102,8 @@ secret for nothing.
 
 ## When something breaks
 
-Go to [runbooks/README.md](runbooks/README.md) for symptom → fix. For the mirror
-specifically, start at [mirror.md](mirror.md).
+Start at [mirror.md](mirror.md) — it carries the operating commands and every
+failure mode this system has actually had.
 
 Four traps worth knowing before your first incident, all of which cost real
 time already:

@@ -8,7 +8,7 @@ archive they serve. The repository is **private**; access is by AWS IAM.
 ## Rules
 
 1. **No secrets in git.** Credentials live in SSM Parameter Store and reach the
-   cluster through External Secrets. See [runbooks/secrets.md](docs/runbooks/secrets.md).
+   cluster through External Secrets. See [architecture.md](docs/architecture.md).
 2. **Least privilege for CI.** The GitHub deploy role (`apt-mirror-github-actions`)
    is assumed via OIDC and maps through an EKS access entry to the Kubernetes
    group `apt-mirror-deployers`. That group holds only namespaced verbs via
@@ -46,7 +46,8 @@ GitHub Actions  --OIDC-->  apt-mirror-github-actions   (trust: repo subject)
 ```
 
 The same chain was rebuilt during the repository rename and verified through
-CloudTrail in both directions — see [ACTIONS.md §A11](docs/ACTIONS.md).
+CloudTrail in both directions — the chain is documented end to end in
+[mirror.md](docs/mirror.md#snapshots).
 
 ## The trigger service account
 
@@ -64,24 +65,8 @@ Canonical's keys and **not** merely against this mirror. That is the control
 that matters: compromising the mirror host does not let an attacker serve
 modified packages to a verifying client.
 
-Do not set `trusted=yes` in client `sources.list`. The E2E test in
-[ACTIONS.md §A7](docs/ACTIONS.md) does the opposite deliberately.
-
-## Known past exposures
-
-| Exposure | Status |
-|---|---|
-| Grafana admin password committed to git, removed in `0.4.0` | **rotated**; value must be treated as public |
-| Hostinger API token, prefix `nyEo…` | **rotated** |
-| Hostinger API token, prefix `iXbn…` | **rotated** |
-
-`terraform/**` and `platform/**` historically contained real AWS and third-party
-identifiers. They were never live credentials, but the repo was public during
-that period, so treat every value that was ever in it as disclosed.
-
-`SECURITY.md` is in `.gitleaks.toml`'s allowlist, which is itself a small risk: a
-future edit to this file could smuggle a real secret past the scanner. Keep it
-prose-only.
+Do not set `trusted=yes` in client `sources.list`. The end-to-end client test in
+[mirror.md](docs/mirror.md) does the opposite deliberately.
 
 ## Reporting
 

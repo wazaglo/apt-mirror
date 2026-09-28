@@ -20,7 +20,7 @@ misconfigured rule could do far more than fire a schedule. The invoke role holds
 omits `events.amazonaws.com`, the rule still fires, the invocation is rejected,
 and the only symptom is `FailedInvocations > 0` with no Lambda logs. That
 happened on 2026-09-27 and left the nodes running all night. See
-`docs/runbooks/cost-scheduler.md` → "Did it actually fire?".
+[docs/mirror.md](../../docs/mirror.md) → scheduling.
 
 ## Apply
 
@@ -84,4 +84,4 @@ aws iam get-role --role-name eks-node-scheduler-invoke \
 ```
 
 Then prove the whole path end-to-end — see "Did it actually fire?" in
-`docs/runbooks/cost-scheduler.md` for the harmless re-arm procedure.
+[docs/mirror.md](../../docs/mirror.md) for the schedule and the resume behaviour.

@@ -6,24 +6,8 @@ in them lives here.
 
 ## Shape
 
-```
-clients ──▶ ALB (internet-facing, wildcard cert *.azubisuccess.space)
-              │
-              ▼
-        nginx edge  (apps/edge)  ── Host-based vhost ──▶ one of:
-              │                                            debian-mirror.azubisuccess.space
-              │                                            ubuntu-mirror.azubisuccess.space
-              ▼
-        mirror-nginx  (apps/mirror, replicas 1, read-only mount)
-              │  /debian/  → <mount>/mirror/deb.debian.org/debian/
-              │  /ubuntu/  → <mount>/mirror/archive.ubuntu.com/ubuntu/
-              ▼
-        EFS  (static PV per access point)
-              ▲
-              │  read-write, single writer
-        debian12-mirror-sync   (Deployment, idles between runs)
-        ubuntu24-mirror-sync   (Deployment, idles between runs)
-```
+![One apt request, end to end](diagrams/request-path.png)
+
 
 Two facts about this shape are load-bearing:
 

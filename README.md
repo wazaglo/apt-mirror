@@ -56,7 +56,7 @@ envs/{dev,prod}/   the only directories CI deploys
 platform/          cluster-scoped: PVs, the deploy ClusterRole, trigger RBAC — applied BY HAND
 infra/             Helm releases and the nightly node scheduler — applied BY HAND
 terraform/         VPC and EKS. NOT in CI
-docs/              operating guide, ADRs, runbooks
+docs/              operating guide, architecture, ADRs, diagrams
 ```
 
 Deploy model, in one line: `apps/**` and `envs/**` are applied by CI on push to
@@ -89,7 +89,7 @@ resumes rather than restarts.
 The node group sits at its pod ceiling: 5 nodes × 11 = 55 slots, currently 54 in
 use. That is why the serving tier is a single replica, why Grafana runs one
 replica, and why the monitoring rollouts use `maxSurge: 0`. See
-[node-pressure.md](docs/runbooks/node-pressure.md).
+[docs/mirror.md](docs/mirror.md#capacity).
 
 ## Repository conventions
 
@@ -100,8 +100,15 @@ replica, and why the monitoring rollouts use `maxSurge: 0`. See
   Kustomize is not a recursive walker, and an unreferenced directory deploys
   nothing while CI stays green.
 
-## Evidence
+## Diagrams
 
-`docs/evidence/` holds captured proof of the running system — AWS resource
-state, endpoint checks, and console screenshots. Regenerate with
-`hack/capture-evidence.sh`.
+Rendered from `hack/diagrams.py` and committed as PNG and SVG:
+
+- [request and sync topology](docs/diagrams/architecture.png)
+- [one apt request, end to end](docs/diagrams/request-path.png)
+- [sync lifecycle](docs/diagrams/sync-lifecycle.png)
+- [secret flow](docs/diagrams/secrets-flow.png)
+
+```bash
+python3 hack/diagrams.py    # needs only matplotlib
+```

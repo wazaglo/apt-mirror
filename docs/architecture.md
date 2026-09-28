@@ -1,52 +1,8 @@
 # Architecture
 
-```
-                    internet
-                       │
-        ┌──────────────┴───────────────┐
-        │  Route53 (external provider)  │
-        │  debian-mirror.azubisuccess   │
-        │  ubuntu-mirror.azubisuccess   │
-        │  grafana.azubisuccess         │
-        └──────────────┬───────────────┘
-                       │ CNAME
-        ┌──────────────┴───────────────┐
-        │  ALB  internet-facing        │
-        │  wildcard *.azubisuccess     │
-        │  us-west-1a + us-west-1c      │
-        └──────────────┬───────────────┘
-                       │ HTTP :80, all hosts
-        ┌──────────────┴───────────────┐
-        │  nginx edge      nginx-demo  │  Host-based vhost selects the backend
-        │  replicas 2                   │
-        └───┬───────────────────────┬──┘
-            │ /debian*, /ubuntu*     │ /  (grafana)
-            │                        │
-   ┌────────┴─────────┐    ┌─────────┴────────┐
-   │ mirror-nginx     │    │ grafana          │
-   │ replicas 1       │    │ replicas 1       │
-   │ read-only mounts │    │ monitoring       │
-   └────────┬─────────┘    └──────────────────┘
-            │
-   ┌────────┴──────────────┬───────────────────┐
-   │ /srv/apt-mirror       │ /srv/ubuntu        │
-   │ debian12-mirror-sync  │ ubuntu24-mirror-  │
-   │ read-write            │ sync  read-write  │
-   └────────┬──────────────┴─────────┬─────────┘
-            │                        │
-   ┌────────┴────────┐      ┌────────┴────────┐
-   │ AP debian12-…   │      │ AP ubuntu24-…   │
-   │ /mirrors/debian/12│     │ /mirrors/ubuntu/24.04
-   └────────┬────────┘      └────────┬────────┘
-            └───────────┬────────────┘
-                        │
-        ┌───────────────┴────────────────┐
-        │  EFS archcloud-mirror-efs       │
-        │  fs-0b0491ead2bac1c8c          │
-        │  Standard, elastic, 2 mount    │
-        │  targets, backups DISABLED     │
-        └────────────────────────────────┘
-```
+![Request and sync topology](diagrams/architecture.png)
+
+<p align="center"><em>Regenerate with <code>python3 hack/diagrams.py</code></em></p>
 
 ## Distro shape
 
