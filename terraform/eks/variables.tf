@@ -40,9 +40,9 @@ variable "node_scaling" {
 }
 
 variable "deployer_role_arn" {
-  description = "GitHub Actions deploy role mapped to eks-gitops-deployers"
+  description = "GitHub Actions deploy role mapped to apt-mirror-deployers"
   type        = string
-  default     = "arn:aws:iam::195675606509:role/eks-gitops-github-actions"
+  default     = "arn:aws:iam::195675606509:role/apt-mirror-github-actions"
 }
 
 variable "admin_user_arn" {

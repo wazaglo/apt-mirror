@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: eks-gitops-deployer
+  name: apt-mirror-deployer
 rules:
   - apiGroups:
       - ''
@@ -156,12 +156,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: eks-gitops-deployer
+  name: apt-mirror-deployer
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: eks-gitops-deployer
+  name: apt-mirror-deployer
 subjects:
   - kind: Group
     apiGroup: rbac.authorization.k8s.io
-    name: eks-gitops-deployers
+    name: apt-mirror-deployers

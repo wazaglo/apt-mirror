@@ -102,7 +102,7 @@ resource "aws_eks_access_entry" "deployer" {
   cluster_name      = aws_eks_cluster.main.name
   principal_arn     = var.deployer_role_arn
   type              = "STANDARD"
-  kubernetes_groups = ["eks-gitops-deployers"]
+  kubernetes_groups = ["apt-mirror-deployers"]
 }
 
 resource "aws_eks_access_entry" "admin" {
