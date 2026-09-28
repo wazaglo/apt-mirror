@@ -16,31 +16,31 @@ data:
         listen 80;
         server_name _;
 
-        root /usr/share/nginx/html/mirror;
-        autoindex on;
-
-        # apt fetches exact paths (Release, Packages.xz, *.deb) and never needs
-        # a directory index, but autoindex makes the mirror browsable by hand.
-        # Values are read-only; a mirror must never be writable over HTTP.
+        # The PVC is mounted at /srv/apt-mirror, which is apt-mirror's base_path.
+        # apt-mirror nests its archives one level down under mirror/<host>/<root>,
+        # so /debian/ maps to /srv/apt-mirror/mirror/deb.debian.org/debian/.
+        # Getting this wrong is a 404, not a partial result.
+        root /srv/apt-mirror/mirror;
 
         location /debian/ {
-            alias /usr/share/nginx/html/mirror/deb.debian.org/debian/;
+            alias /srv/apt-mirror/mirror/deb.debian.org/debian/;
             autoindex on;
         }
 
         location /debian-security/ {
-            alias /usr/share/nginx/html/mirror/security.debian.org/debian-security/;
+            alias /srv/apt-mirror/mirror/security.debian.org/debian-security/;
             autoindex on;
         }
 
-        # Anything else 404s rather than exposing the spool layout.
+        # Anything else 404s. Do NOT autoindex the root: it would expose the
+        # spool internals (mirror/, .temp/, dists/) to anyone who guessed the
+        # hostname. Only the two archive paths are meant to be browsable.
         location / {
-            autoindex on;
+            return 404;
         }
 
-        # Health endpoint for probes. Deliberately not "/" — autoindex on a
-        # 67k-file tree is slow to render and would fail a probe timeout.
-        # An exact-match location, so it wins over every prefix below.
+        # Health endpoint for probes. Deliberately not "/" — an exact-match
+        # location, so it wins over every prefix above.
         location = /healthz {
             access_log off;
             return 200 "ok\n";

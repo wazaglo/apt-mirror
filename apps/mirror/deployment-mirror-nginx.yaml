@@ -76,8 +76,12 @@ spec:
             # readOnly: a mirror served over HTTP must not be writable, and this
             # stops an nginx bug from writing into the spool that apt-mirror
             # treats as authoritative.
+            #
+            # Mounted at /srv/apt-mirror to mirror apt-mirror's base_path, so
+            # the paths in mirror-nginx-conf.default.conf read the same way the
+            # ones in mirror.list do.
             - name: mirror-storage
-              mountPath: /usr/share/nginx/html/mirror
+              mountPath: /srv/apt-mirror
               readOnly: true
             - name: nginx-conf
               mountPath: /etc/nginx/conf.d
