@@ -32,9 +32,22 @@ data:
             autoindex on;
         }
 
+        # Point-in-time snapshots, hardlinked by mirror-snapshot-conf. Layout is
+        # snapshots/<name>/{debian,debian-security}/, so a client pins a frozen
+        # package set with:
+        #   deb http://debian-mirror.azubisuccess.space/snapshots/<name>/debian bookworm main
+        #
+        # Plain prefix + alias, no regex. A regex here would be evaluated
+        # before the /debian/ alias above and could shadow it — the same class
+        # of bug that 404'd every package earlier.
+        location /snapshots/ {
+            alias /srv/apt-mirror/snapshots/;
+            autoindex on;
+        }
+
         # Anything else 404s. Do NOT autoindex the root: it would expose the
-        # spool internals (mirror/, .temp/, dists/) to anyone who guessed the
-        # hostname. Only the two archive paths are meant to be browsable.
+        # spool internals (mirror/, skel/, var/) to anyone who guessed the
+        # hostname. Only the archive paths and /snapshots/ are browsable.
         location / {
             return 404;
         }

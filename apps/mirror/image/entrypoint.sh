@@ -25,7 +25,23 @@ install -m0644 /conf/mirror.list /etc/apt/mirror.list
 install -m0644 /conf/apt.conf    /etc/apt/apt.conf.d/99custom
 
 echo "=== apt-mirror sync start $(date -u) ==="
-apt-mirror
+
+# Serialise against snapshot jobs via a shared lock on the spool.
+#
+# The lock is scoped to a SUBSHELL on purpose. This container then idles for
+# ~24h until the 10:00 UTC trigger rolls the pod, and holding the lock across
+# that idle period would block every snapshot indefinitely. A subshell takes
+# the lock, runs apt-mirror, and releases on exit.
+#
+# The lock lives at the spool root, not in var/, because var/ does not exist on
+# a fresh access point and flock cannot create a lock file in a missing
+# directory. Verified working over this EFS NFSv4 mount (acquire, block,
+# release) rather than assumed.
+(
+  flock -x 9
+  apt-mirror
+) 9>"$BASE/.apt-mirror.lock"
+
 echo "=== apt-mirror sync done  $(date -u) ==="
 
 du -sh "$BASE" 2>/dev/null || true

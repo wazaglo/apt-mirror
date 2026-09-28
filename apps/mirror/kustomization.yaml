@@ -20,6 +20,11 @@ resources:
   - deployment-debian12-sync.yaml
   - cronjob-debian12-sync-trigger.yaml
 
+  # Snapshot side: hardlink copies of the spool, servable at /snapshots/<name>/.
+  # Suspended — run by hand first, then set suspend: false to schedule it.
+  - configmap-snapshot.yaml
+  - cronjob-debian12-snapshot.yaml
+
   # Serving side: read-only HTTP over the spool, fronted by nginx-demo/ALB.
   - configmap-mirror-nginx.yaml
   - deployment-mirror-nginx.yaml

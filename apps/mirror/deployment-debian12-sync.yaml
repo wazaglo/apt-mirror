@@ -56,7 +56,8 @@ spec:
           #
           # Pinned by digest (SECURITY.md). Built from apps/mirror/image/ — the
           # same files are in this repo, so the image is reproducible.
-          image: wazaglo/debian12-mirror@sha256:44084d8aae55947d056278c3164ac3714393c02d9162b7f65c419cf6cbbcf5a8
+          # 3.0 adds the flock that serialises the sync against snapshot jobs.
+          image: wazaglo/debian12-mirror@sha256:c512bae3d99d92453bb99034c4436bbd6e0c6699176fb530862cf33dea9632a1
           imagePullPolicy: IfNotPresent
 
           # apt-mirror writes the whole spool. The access point forces POSIX

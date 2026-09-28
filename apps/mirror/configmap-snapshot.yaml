@@ -1,0 +1,108 @@
+# Hardlink snapshot logic for the Debian 12 mirror. Kept in git next to the
+# sync config for the same reason: changing retention or layout should be a
+# ConfigMap edit, not an image rebuild.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mirror-snapshot-conf
+  namespace: mirrors
+data:
+  snapshot.sh: |
+    #!/bin/bash
+    # Take one hardlink snapshot of the mirror spool, then prune old ones.
+    #
+    # `cp -al` creates hardlinks, not copies, so a snapshot of ~67k files is
+    # nearly free in bytes — but it is NOT free in metadata: EFS NFSv4 metadata
+    # ops are single-digit milliseconds, so expect this to take minutes, not
+    # seconds.
+    #
+    # Deleting a snapshot only drops link counts. The bytes are freed only once
+    # BOTH the snapshot and the live mirror have moved on, which is why snapshots
+    # pin space and why KEEP is bounded.
+    set -euo pipefail
+
+    BASE=/var/spool/apt-mirror
+    SNAPS="$BASE/snapshots"
+    LOCK="$BASE/.apt-mirror.lock"
+    KEEP="${SNAPSHOT_KEEP:-3}"
+    LOCK_WAIT="${SNAPSHOT_LOCK_WAIT:-300}"
+
+    # Only names of exactly this shape may ever be deleted by the prune step.
+    # This is the rail that stops a bug here from removing LATEST, or worse, the
+    # live mirror.
+    NAME_RE='^[0-9]{8}-[0-9]{6}Z$'
+
+    mkdir -p "$SNAPS" "$BASE/var"
+
+    # Serialise against the sync so the snapshot cannot capture a half-updated
+    # tree. -w bounds the wait: a skipped snapshot day is much better than a job
+    # that piles up or a snapshot taken mid-write.
+    exec 9>"$LOCK"
+    echo "Waiting up to ${LOCK_WAIT}s for the sync lock..."
+    if ! flock -w "$LOCK_WAIT" -x 9; then
+      echo "ERROR: apt-mirror is still running after ${LOCK_WAIT}s — skipping snapshot rather than risk a torn copy."
+      exit 1
+    fi
+    echo "Acquired sync lock."
+
+    NAME="$(date -u +%Y%m%d-%H%M%SZ)"
+    DEST="$SNAPS/$NAME"
+
+    if [ -e "$DEST" ]; then
+      echo "ERROR: $DEST already exists — refusing to touch it."
+      exit 1
+    fi
+
+    mkdir -p "$DEST"
+
+    # Layout is deliberately NOT a copy of the live tree. The spool nests
+    # archives as mirror/<host>/<root>/, which would force clients onto URLs like
+    #   /snapshots/<name>/deb.debian.org/debian/dists/bookworm/Release
+    # Flattening to <name>/debian and <name>/debian-security gives clean client
+    # URLs and lets the whole snapshot be served by one nginx prefix location
+    # with no regex or rewrite.
+    copy_root() {
+      local src="$1" sub="$2"
+      if [ ! -d "$src" ]; then
+        echo "  skip $sub: $src does not exist (archive not synced yet)"
+        return 0
+      fi
+      echo "  hardlinking $sub ..."
+      cp -al "$src" "$DEST/$sub"
+    }
+
+    echo "Snapshot $NAME"
+    copy_root "$BASE/mirror/deb.debian.org/debian"              debian
+    copy_root "$BASE/mirror/security.debian.org/debian-security" debian-security
+
+    {
+      echo "name=$NAME"
+      echo "created=$(date -u +%FT%TZ)"
+      echo "hardlinked_from=mirror/{deb.debian.org/debian,security.debian.org/debian-security}"
+      echo "files=$(find "$DEST" -type f ! -name .meta | wc -l)"
+      echo "apparent_bytes=$(du -sb "$DEST" 2>/dev/null | cut -f1 || echo unknown)"
+      echo "note=hardlinked: deleting this frees nothing until the live mirror also moves past each file"
+    } > "$DEST/.meta"
+
+    printf '%s\n' "$NAME" > "$SNAPS/LATEST"
+
+    # Prune oldest-first. Names are UTC timestamps so lexical order is
+    # chronological.
+    echo "Pruning to the newest $KEEP snapshot(s):"
+    mapfile -t ALL < <(find "$SNAPS" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -r)
+
+    kept=0
+    for d in "${ALL[@]}"; do
+      kept=$((kept + 1))
+      if [ "$kept" -gt "$KEEP" ]; then
+        if [[ "$d" =~ $NAME_RE ]]; then
+          echo "  removing $d"
+          rm -rf "${SNAPS:?}/${d:?}"
+        else
+          echo "  WARNING: refusing to remove '$d' — name does not match $NAME_RE"
+        fi
+      fi
+    done
+
+    echo "Snapshot $NAME complete."
+    ls -A "$SNAPS"
