@@ -1,4 +1,4 @@
-# eks-gitops
+# apt-mirror
 
 Production-shaped EKS platform, deployed from git. Kubernetes manifests for
 apps, GitHub Actions for delivery, AWS-native storage, DNS, TLS, and a full
@@ -58,7 +58,7 @@ bootstrap → platform/      # CI deploy RBAC (moved)
 ## Quick start
 
 ```bash
-git clone https://github.com/wazaglo/eks-gitops.git && cd eks-gitops
+git clone https://github.com/wazaglo/apt-mirror.git && cd apt-mirror
 kubectl kustomize envs/dev/ > /dev/null && echo "manifests render OK"
 
 aws eks update-kubeconfig --region us-west-1 --name eks-lab

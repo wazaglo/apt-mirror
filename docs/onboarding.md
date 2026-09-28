@@ -22,7 +22,7 @@ aws sts get-caller-identity
 ## 2. Clone and validate (no cluster needed)
 
 ```bash
-git clone https://github.com/wazaglo/eks-gitops.git && cd eks-gitops
+git clone https://github.com/wazaglo/apt-mirror.git && cd apt-mirror
 kubectl kustomize envs/dev/ > /dev/null && echo "manifests OK"
 ```
 
@@ -62,7 +62,7 @@ git push -u origin feat/my-change                 # open PR, CI validates
 kubectl -n nginx-demo get ingress nginx -o wide
 kubectl -n monitoring get deploy,pod -o wide
 curl -s -o /dev/null -w '%{http_code}\n' https://grafana.azubisuccess.space/login
-gh run list --repo wazaglo/eks-gitops --limit 3
+gh run list --repo wazaglo/apt-mirror --limit 3
 ```
 
 ## 7. Grafana login

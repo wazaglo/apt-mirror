@@ -1,8 +1,8 @@
 # Runbook: CI pipeline
 
 ```bash
-gh run list --repo wazaglo/eks-gitops --limit 5
-gh run view <run-id> --repo wazaglo/eks-gitops --log-failed
+gh run list --repo wazaglo/apt-mirror --limit 5
+gh run view <run-id> --repo wazaglo/apt-mirror --log-failed
 ```
 
 ## Which job failed?

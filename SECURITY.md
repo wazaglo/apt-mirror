@@ -13,7 +13,7 @@ file here as security-sensitive by default.
    `*.secret.yaml`, `terraform.tfvars`, `*.pem`, `*.key` are gitignored and
    CI-scanned with gitleaks. If you paste a secret into a commit, treat it as
    compromised (see Rotation below).
-2. **Least privilege.** The GitHub deploy role (`eks-gitops-deployers`) can
+2. **Least privilege.** The GitHub deploy role (`apt-mirror-deployers`) can
    manage namespaced workloads only. Cluster-scoped objects (`platform/`,
    StorageClasses, PVs, ClusterRoles, Helm releases) are applied manually by
    a cluster admin and never by CI — a compromised workflow must not be able

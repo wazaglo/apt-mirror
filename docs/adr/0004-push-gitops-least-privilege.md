@@ -11,9 +11,9 @@ can do.
 ## Decision
 
 - **Push-based**: GitHub Actions assumes an OIDC role
-  (`eks-gitops-github-actions` → `eks-gitops-deployers`) and applies
+  (`apt-mirror-github-actions` → `apt-mirror-deployers`) and applies
   `envs/dev/`. No cluster-side polling component to operate.
-- **Least privilege by construction**: the `eks-gitops-deployer` ClusterRole
+- **Least privilege by construction**: the `apt-mirror-deployer` ClusterRole
   (`platform/bootstrap-rbac.yaml`) grants namespaced verbs only. It cannot
   create ClusterRoles, StorageClasses, PVs, or webhook configurations.
 - **Cluster-scoped and Helm-managed things are manual**: `platform/`

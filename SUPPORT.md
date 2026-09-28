@@ -18,7 +18,7 @@
 
 ```bash
 # Where am I deployed from?
-git -C eks-gitops rev-parse --short HEAD
+git rev-parse --short HEAD
 
 # Cluster state in one glance
 kubectl get nodes
@@ -26,5 +26,5 @@ kubectl -n nginx-demo get ingress nginx -o wide
 kubectl -n monitoring get deploy,pod,svc,pvc -o wide
 
 # Recent pipeline runs
-gh run list --repo wazaglo/eks-gitops --limit 5
+gh run list --repo wazaglo/apt-mirror --limit 5
 ```

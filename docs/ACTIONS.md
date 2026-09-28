@@ -67,7 +67,7 @@ Result: `arn:aws:iam::195675606509:role/eks-alb-role`.
 
 ## 3. GitOps ServiceAccount (via GitHub)
 
-Files in `eks-gitops`:
+Files in `apt-mirror`:
 - `manifests/alb/serviceaccount.yaml` — `kube-system/aws-load-balancer-controller` with annotation `eks.amazonaws.com/role-arn: arn:aws:iam::195675606509:role/eks-alb-role`
 - `manifests/alb/kustomization.yaml`
 - `manifests/kustomization.yaml` now includes `nginx` + `alb`

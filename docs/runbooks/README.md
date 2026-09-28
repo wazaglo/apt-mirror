@@ -20,7 +20,7 @@ Symptom → first command → fix. Historical detail for each incident is in
 kubectl get pods -A -o wide | grep -v Running     # what is actually broken
 kubectl -n <ns> describe pod <pod> | tail -20     # events tell the story
 kubectl -n <ns> logs <pod> --tail=50
-gh run list --repo wazaglo/eks-gitops --limit 3   # did CI even apply my change?
+gh run list --repo wazaglo/apt-mirror --limit 3   # did CI even apply my change?
 ```
 
 ## Cost / scheduling

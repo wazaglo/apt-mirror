@@ -147,7 +147,7 @@ aws efs put-backup-configuration --file-system-id fs-0ddb254be08c6267a \
 
 ## 5. Phase 2 — cluster-scoped Kubernetes objects (manual `kubectl`)
 
-The CI `eks-gitops-deployer` ClusterRole cannot create StorageClasses or PVs, so
+The CI `apt-mirror-deployer` ClusterRole cannot create StorageClasses or PVs, so
 these live in `platform/` and follow the existing "apply MANUALLY once" header
 convention already used by `storageclass.yaml` and `pv-grafana.yaml`.
 

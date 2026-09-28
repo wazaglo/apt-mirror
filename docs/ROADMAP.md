@@ -73,7 +73,7 @@ Result: `arn:aws:iam::195675606509:role/eks-alb-role`.
 
 ## Step 2 — ServiceAccount via GitOps ✅ done
 
-In repo `eks-gitops`, file `manifests/alb/serviceaccount.yaml`:
+In repo `apt-mirror`, file `manifests/alb/serviceaccount.yaml`:
 
 ```yaml
 apiVersion: v1
