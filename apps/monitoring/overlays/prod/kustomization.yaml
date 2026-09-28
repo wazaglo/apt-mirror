@@ -1,12 +1,13 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# Prod diverges deliberately: single Grafana replica (shared SQLite is safer
-# with one writer) and longer Prometheus retention.
+# Prod diverges deliberately: longer Prometheus retention.
+#
+# The single-replica Grafana decision used to live here as a patch. It is now in
+# base, because it is not a prod-specific choice — two replicas on one SQLite
+# over EFS NFS is wrong in every environment, and patching it per-overlay meant
+# the base kept advertising 2 replicas that KEDA would immediately undo.
 resources:
   - ../../base
-replicas:
-  - name: grafana
-    count: 1
 patches:
   - target:
       kind: Deployment
@@ -27,15 +28,3 @@ patches:
                   - --storage.tsdb.retention.time=24h
                   - --web.enable-lifecycle
                   - --web.enable-remote-write-receiver
-  # Keep the nightly schedule consistent with the single-replica Grafana above:
-  # maxReplicaCount must not scale past the one writer of the SQLite file on EFS.
-  - target:
-      kind: ScaledObject
-      name: grafana-schedule
-    patch: |-
-      - op: replace
-        path: /spec/maxReplicaCount
-        value: 1
-      - op: replace
-        path: /spec/triggers/0/metadata/desiredReplicas
-        value: "1"

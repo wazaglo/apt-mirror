@@ -21,7 +21,15 @@ spec:
   scaleTargetRef:
     name: grafana
   minReplicaCount: 0
-  maxReplicaCount: 2
+  # 1, not 2. Grafana's SQLite database lives on EFS NFS, and two replicas mean
+  # two concurrent writers on one file, which hits "database is locked"
+  # (ADR-0003). One replica is also what frees the pod slot the mirror needs —
+  # the nodegroup is at its pod ceiling.
+  #
+  # The ScaledObject, not the Deployment's `replicas`, is what actually sets
+  # the replica count here: KEDA creates an HPA that overwrites spec.replicas
+  # every morning. Setting replicas: 1 on the Deployment alone does nothing.
+  maxReplicaCount: 1
   pollingInterval: 60
   cooldownPeriod: 30
   triggers:
@@ -30,7 +38,7 @@ spec:
         timezone: Etc/UTC
         start: "5 10 * * *"
         end: "54 17 * * *"
-        desiredReplicas: "2"
+        desiredReplicas: "1"
 ---
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
