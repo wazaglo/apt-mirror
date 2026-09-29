@@ -18,6 +18,19 @@ resources:
   - configmap-snapshot.yaml
   - cronjob-debian12-snapshot.yaml
 
-  - configmap-mirror-nginx.yaml
   - deployment-mirror-nginx.yaml
   - service.yaml
+
+configMapGenerator:
+  - name: mirror-nginx-conf
+    files:
+      - mirror-nginx.conf
+
+patches:
+  - target:
+      kind: ConfigMap
+      name: mirror-nginx-conf
+    patch: |-
+      - op: add
+        path: /metadata/namespace
+        value: mirrors

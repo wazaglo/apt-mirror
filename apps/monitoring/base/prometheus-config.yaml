@@ -27,6 +27,8 @@ data:
           - targets:
               - https://grafana.azubisuccess.space/login
               - http://nginx.nginx-demo.svc.cluster.local
+              - https://debian-mirror.azubisuccess.space/debian/dists/bookworm/Release
+              - https://ubuntu-mirror.azubisuccess.space/ubuntu/dists/noble/Release
         relabel_configs:
           - source_labels: [__address__]
             target_label: __param_target

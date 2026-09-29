@@ -77,9 +77,8 @@ locals {
     eks-node-monitoring-agent = "v1.7.2-eksbuild.1"
     metrics-server            = "v0.9.0-eksbuild.11"
     external-dns              = "v0.23.0-eksbuild.1"
-    # WARNING: aws-efs-csi-driver ALSO exists as Helm release 3.5.0 (chart).
-    # Live EKS addon is v3.4.2-eksbuild.1. Keep only one manager (addon OR helm),
-    # not both — they fight over the same workloads.
+    # Manage aws-efs-csi-driver as an EKS addon only. A conflicting Helm release
+    # would fight this addon over the same workloads.
     aws-efs-csi-driver = "v3.4.2-eksbuild.1"
   }
 }
