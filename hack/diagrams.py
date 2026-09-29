@@ -2,16 +2,16 @@
 """Render the architecture diagrams as real images.
 
 There is no graphviz or mermaid-cli here, but matplotlib is, and it needs no
-network. Diagrams are committed as PNG (high DPI, for README embedding) and SVG
-(for anyone who wants to edit them).
+network. Diagrams are committed as high-DPI PNG files for README embedding. SVG output
+is intentionally disabled so the repository keeps one canonical image format.
 
     python3 hack/diagrams.py
 
-Output: docs/diagrams/*.png and *.svg
+Output: docs/diagrams/*.png
 
 Every label in these diagrams is asserted against the live cluster or the repo
 before it is drawn, so a diagram cannot quietly go stale the way a hand-drawn
-one does. Run hack/capture-evidence.sh to refresh the facts.
+one does.
 """
 from __future__ import annotations
 
@@ -111,10 +111,8 @@ def new_canvas(title, subtitle, w=15.5, h=19.0, xlim=(-7.8, 7.8), ylim=(-9.6, 11
 
 def save(fig, name):
     os.makedirs(OUT, exist_ok=True)
-    for ext in ("png", "svg"):
-        path = os.path.join(OUT, f"{name}.{ext}")
-        fig.savefig(path, bbox_inches="tight", facecolor="white",
-                    dpi=200 if ext == "png" else None)
+    path = os.path.join(OUT, f"{name}.png")
+    fig.savefig(path, bbox_inches="tight", facecolor="white", dpi=200)
     print(f"  docs/diagrams/{name}.png")
 
 
@@ -214,7 +212,8 @@ def request_path():
     steps = [
         (CLIENT, "1  apt client",
          ["sources.list → debian-mirror…",
-          "GPG-verifies Release; no trusted=yes"]),
+          "GPG-verifies Release,",
+          "never trusted=yes"]),
         (DNS, "2  DNS",
          ["CNAME → ALB elastic name"]),
         (EDGE, "3  ALB",
