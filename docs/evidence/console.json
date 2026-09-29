@@ -1,0 +1,86 @@
+{
+  "capturedAt": "2026-09-29T12:58:28.270Z",
+  "pages": [
+    {
+      "name": "debian-mirror-dists",
+      "url": "https://debian-mirror.azubisuccess.space/debian/dists/",
+      "status": 200,
+      "title": "Index of /debian/dists/",
+      "secureContext": true,
+      "consoleErrors": [],
+      "nonOkResponses": [
+        {
+          "url": "https://debian-mirror.azubisuccess.space/favicon.ico",
+          "status": 404
+        }
+      ],
+      "failedRequests": [],
+      "consoleMessages": [
+        {
+          "type": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()"
+        }
+      ]
+    },
+    {
+      "name": "ubuntu-mirror-dists",
+      "url": "https://ubuntu-mirror.azubisuccess.space/ubuntu/dists/",
+      "status": 200,
+      "title": "Index of /ubuntu/dists/",
+      "secureContext": true,
+      "consoleErrors": [],
+      "nonOkResponses": [
+        {
+          "url": "https://ubuntu-mirror.azubisuccess.space/favicon.ico",
+          "status": 404
+        }
+      ],
+      "failedRequests": [],
+      "consoleMessages": [
+        {
+          "type": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 ()"
+        }
+      ]
+    },
+    {
+      "name": "debian-mirror-root",
+      "url": "https://debian-mirror.azubisuccess.space/debian/",
+      "status": 200,
+      "title": "Index of /debian/",
+      "secureContext": true,
+      "consoleErrors": [],
+      "nonOkResponses": [],
+      "failedRequests": [],
+      "consoleMessages": []
+    },
+    {
+      "name": "grafana-login",
+      "url": "https://grafana.azubisuccess.space/login",
+      "status": 200,
+      "title": "Grafana",
+      "secureContext": true,
+      "consoleErrors": [],
+      "nonOkResponses": [],
+      "failedRequests": [],
+      "consoleMessages": [
+        {
+          "type": "debug",
+          "text": "PluginMeta: initializing panel plugins cache with bootdata values [object Object]"
+        },
+        {
+          "type": "debug",
+          "text": "PluginMeta: initializing app plugins cache with bootdata values [object Object]"
+        },
+        {
+          "type": "warn",
+          "text": "[]Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader flag to opt in to lower security guarantees for trusted content."
+        },
+        {
+          "type": "verbose",
+          "text": "[DOM] Input elements should have autocomplete attributes (suggested: \"username\"): (More info: https://goo.gl/9p2vKq) %o"
+        }
+      ]
+    }
+  ]
+}

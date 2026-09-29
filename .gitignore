@@ -13,3 +13,7 @@ __pycache__/
 
 # Lambda build artifact (rebuild: cd infra/scheduler && zip scheduler.zip scheduler.py)
 infra/scheduler/scheduler.zip
+
+# Evidence capture tooling (hack/capture-evidence.mjs)
+node_modules/
+package-lock.json
