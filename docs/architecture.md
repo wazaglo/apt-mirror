@@ -2,8 +2,6 @@
 
 ![Request and sync topology](diagrams/architecture.png)
 
-<p align="center"><em>Regenerate with <code>python3 hack/diagrams.py</code></em></p>
-
 ## Distro shape
 
 The two distros are not symmetric, and the difference is the single most

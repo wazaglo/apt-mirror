@@ -14,5 +14,5 @@
 
 ## Docs updated?
 
-- [ ] `docs/mirror.md` or `CHANGELOG.md` (`Unreleased`) if behavior changed
+- [ ] `docs/mirror.md` (or an ADR, if it is a design change) if behavior changed
 - [ ] No secrets committed (`git log -p` self-checked)

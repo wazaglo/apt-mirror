@@ -1,13 +1,10 @@
-# Browser evidence
+# Evidence
 
-Captured by `hack/capture-evidence.mjs` against the live endpoints on
-2026-09-29T12:58:28Z. Regenerate with:
-
-    node hack/capture-evidence.mjs
-
-Each page is loaded by a real headless Chrome as an unauthenticated client, so
-this shows what an `apt` client on the internet actually receives, not what
-`curl` from inside the cluster returns.
+Captured against the live endpoints on 2026-09-29T12:58:28Z with a headless
+Chrome driven as an unauthenticated client, so this shows what an `apt` client
+on the internet actually receives, not what `curl` from inside the cluster
+returns. [cluster-state.md](cluster-state.md) is the matching view from inside
+the cluster.
 
 | Page | Status | HTTPS | Screenshot |
 | --- | --- | --- | --- |
