@@ -20,13 +20,19 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 2
+      # The nodegroup allows only 11 pods per node and the cluster runs at that
+      # ceiling during the day. A finished trigger pod that lingers on holds a
+      # scheduling slot for hours and can starve a real workload, so delete
+      # them shortly after they finish. History limits still apply to the Job
+      # records, which cost nothing.
+      ttlSecondsAfterFinished: 300
       template:
         spec:
           restartPolicy: Never
           serviceAccountName: mirror-sync-trigger
           containers:
             - name: trigger
-              image: bitnami/kubectl:1.29
+              image: alpine/k8s@sha256:a51aa37f0a34ff827c7f2f9cb7f6fbb8f0e290fa625341be14c2fcc4b1880f60
               imagePullPolicy: IfNotPresent
               command:
                 - /bin/bash
@@ -60,8 +66,6 @@ spec:
               env:
                 - name: HOME
                   value: /tmp
-                - name: KUBECONFIG
-                  value: /tmp/kubeconfig
               securityContext:
                 runAsNonRoot: true
                 runAsUser: 1001

@@ -4,7 +4,13 @@ metadata:
   name: nginx
   namespace: nginx-demo
 spec:
-  replicas: 2
+  # One replica, deliberately. The t3.small nodegroup allows 11 pods per node
+  # and the day-time cluster sits at that ceiling, so a second front-proxy
+  # replica does not fail over gracefully — it simply cannot schedule, and it
+  # starves whatever pod is next in line (this already left a sync-trigger Job
+  # Pending for hours). One replica keeps a pod slot free for real work; raise
+  # the nodegroup size first, then this number.
+  replicas: 1
   selector:
     matchLabels:
       app: nginx

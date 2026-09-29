@@ -15,7 +15,6 @@ resources:
   - alloy-config.yaml
   - alloy-daemonset.yaml
   - prometheus-sa.yaml
-  - prometheus-config.yaml
   - prometheus-pvc.yaml
   - prometheus-deployment.yaml
   - prometheus-service.yaml
@@ -23,3 +22,23 @@ resources:
   - blackbox-deployment.yaml
   - blackbox-service.yaml
   - scaledobjects.yaml
+
+# The Prometheus config is generated, not a static ConfigMap. Prometheus only
+# reads --config.file at startup, so a static ConfigMap means an edited scrape
+# config sits in the cluster doing nothing until the pod happens to restart.
+# With a name suffix hash the mounted ConfigMap name changes on every edit, the
+# Deployment's pod template changes with it, and `kubectl apply` rolls the pod
+# on purpose. Same reasoning as apps/mirror's mirror-nginx-conf.
+configMapGenerator:
+  - name: prometheus-config
+    files:
+      - prometheus/prometheus.yml
+
+patches:
+  - target:
+      kind: ConfigMap
+      name: prometheus-config
+    patch: |-
+      - op: add
+        path: /metadata/namespace
+        value: monitoring

@@ -1,0 +1,31 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  # Itself
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Node hardware metrics arrive via Alloy remote-write
+  # (prometheus.exporter.unix on every node) — no scrape job needed.
+
+  # Blackbox HTTP probes of our endpoints (EDIT targets as you add sites).
+  - job_name: blackbox-http
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - https://grafana.azubisuccess.space/login
+          - http://nginx.nginx-demo.svc.cluster.local
+          - https://debian-mirror.azubisuccess.space/debian/dists/bookworm/Release
+          - https://ubuntu-mirror.azubisuccess.space/ubuntu/dists/noble/Release
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox.monitoring.svc.cluster.local:9115

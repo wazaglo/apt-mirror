@@ -2,6 +2,10 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../base
+# Kept at 1, same as the base. Every workload in this repo runs a single
+# replica because the day-time cluster is pinned at the nodegroup's 11-pod
+# ceiling; a second copy of anything does not fail over, it just fails to
+# schedule. Scale the nodegroup up before scaling any of these out.
 replicas:
   - name: nginx
-    count: 3
+    count: 1

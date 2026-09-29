@@ -16,6 +16,9 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 3
+      # See the debian12 trigger: finished pods must not squat on the nodegroup's
+      # 11-pod ceiling.
+      ttlSecondsAfterFinished: 300
       template:
         spec:
           restartPolicy: Never
@@ -23,7 +26,7 @@ spec:
           serviceAccountName: mirror-sync-trigger
           containers:
             - name: trigger
-              image: bitnami/kubectl:1.29
+              image: alpine/k8s@sha256:a51aa37f0a34ff827c7f2f9cb7f6fbb8f0e290fa625341be14c2fcc4b1880f60
               imagePullPolicy: IfNotPresent
               command:
                 - /bin/bash
@@ -45,8 +48,6 @@ spec:
               env:
                 - name: HOME
                   value: /tmp
-                - name: KUBECONFIG
-                  value: /tmp/kubeconfig
               resources:
                 requests:
                   cpu: 50m
