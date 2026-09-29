@@ -85,11 +85,11 @@ access point. They share only the serving tier.
 `monitoring` holds Grafana (1 replica), Prometheus on EFS, Loki, blackbox
 exporter and an Alloy DaemonSet. It exists to watch the mirror and the edge —
 there is no demo workload left. The mirror endpoint probe list is in
-`apps/monitoring/base/prometheus-config.yaml`.
+`apps/monitoring/base/prometheus/prometheus.yml`.
 
 ## Deliberate constraints
 
-- **5 nodes, 55 pod slots, 54 in use.** Everything about the replica counts
+- **5 nodes, 55 pod slots, all 55 in use day-time.** Everything about the replica counts
   follows from this.
 - **No dedicated node group for the mirror.** It shares `ng-eks` (t3.small) and
   therefore inherits the nightly scale-to-zero and the pod ceiling.
